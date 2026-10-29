@@ -21,18 +21,28 @@ import (
 )
 
 type playerState struct {
-	ID       json.RawMessage `json:"id"`
-	Title    string          `json:"title"`
-	Subtitle string          `json:"subtitle"`
-	Progress float64         `json:"progress"`
-	Duration float64         `json:"duration"`
-	Extra    struct {
+	ID           json.RawMessage `json:"id"`
+	Title        string          `json:"title"`
+	Subtitle     string          `json:"subtitle"`
+	Progress     float64         `json:"progress"`
+	Duration     float64         `json:"duration"`
+	PlaylistType string          `json:"playlistType"`
+	PlaylistID   json.RawMessage `json:"playlistId"`
+	PlaylistPUID json.RawMessage `json:"playlistPuid"`
+	EntityInfo   struct {
+		Next struct {
+			ID json.RawMessage `json:"id"`
+		} `json:"next"`
+		Shuffled *bool `json:"shuffled"`
+	} `json:"entityInfo"`
+	Extra struct {
 		CoverURI string `json:"coverURI"`
 	} `json:"extra"`
 }
 type glagolState struct {
 	Playing bool         `json:"playing"`
 	Player  *playerState `json:"playerState"`
+	Volume  *float64     `json:"volume"`
 }
 type musicInfo struct {
 	TrackKey  string  `json:"-"`
@@ -247,6 +257,9 @@ func (m *musicClient) connect(ctx context.Context, deviceID, platform, token str
 		m.mu.Unlock()
 		if envelope.State != nil {
 			m.monitor.setGlagolMusic(true, playing)
+			if envelope.State.Volume != nil && *envelope.State.Volume >= 0 && *envelope.State.Volume <= 1 {
+				m.monitor.syncVolume(*envelope.State.Volume * 10)
+			}
 		}
 	}
 }
@@ -372,6 +385,7 @@ func (m *musicClient) waitPlayback(ctx context.Context, conn *websocket.Conn, to
 }
 
 func (m *musicClient) routes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/music/queue", m.queueRoute)
 	mux.HandleFunc("GET /api/music/like", m.likeRoute)
 	mux.HandleFunc("POST /api/music/like", m.likeRoute)
 	mux.HandleFunc("GET /api/music", func(w http.ResponseWriter, r *http.Request) {

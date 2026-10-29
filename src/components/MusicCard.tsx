@@ -20,7 +20,7 @@ async function requestAuth(path: string, signal: AbortSignal, method = "GET") {
   return data;
 }
 
-export function MusicCard() {
+export function MusicCard({ onTrackChange, onTrackSwitching }: { onTrackChange: (id: string) => void; onTrackSwitching: (switching: boolean) => void }) {
   const [auth, setAuth] = useState<AuthState>("checking");
   const [checkVersion, setCheckVersion] = useState(0);
   const [open, setOpen] = useState(false);
@@ -52,6 +52,9 @@ export function MusicCard() {
   const progressRatio = music?.duration ? Math.max(0, Math.min(1, progress / music.duration)) : 0;
   const connected = music?.connected === true && authorized;
   const wave = `M0 8 Q4 0 8 8 ${Array.from({ length: 39 }, (_, i) => `T${(i + 2) * 8} 8`).join(" ")}`;
+
+  useEffect(() => { onTrackChange(music?.trackId ?? ""); }, [music?.trackId, onTrackChange]);
+  useEffect(() => { onTrackSwitching(commandPending && (pendingCommand === "next" || pendingCommand === "prev")); }, [commandPending, pendingCommand, onTrackSwitching]);
 
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
   useEffect(() => {

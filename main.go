@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -95,6 +96,20 @@ func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) 
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]string{"firmware": strings.TrimSpace(string(data))})
+	})
+	mux.HandleFunc("GET /api/station/uptime", func(w http.ResponseWriter, r *http.Request) {
+		data, err := os.ReadFile("/proc/uptime")
+		fields := strings.Fields(string(data))
+		if err != nil || len(fields) == 0 {
+			authWrite(w, http.StatusServiceUnavailable, map[string]string{"error": "Время работы недоступно"})
+			return
+		}
+		seconds, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil || seconds < 0 {
+			authWrite(w, http.StatusServiceUnavailable, map[string]string{"error": "Время работы недоступно"})
+			return
+		}
+		authWrite(w, http.StatusOK, map[string]any{"uptime": int64(seconds)})
 	})
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)

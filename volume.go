@@ -100,6 +100,21 @@ func (v volumeLighting) color(level float64) string {
 
 var volumeChange = regexp.MustCompile(`onVolumeChanged: platformVolume: ([0-9]+),.*stream: MEDIA`)
 
+func (m *aliceMonitor) syncVolume(level float64) {
+	level = math.Round(level*2) / 2
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.status.VolumeKnown || m.status.Volume != level {
+		if m.status.VolumeKnown {
+			m.status.VolumePulse = volumePulse{ID: m.status.VolumePulse.ID + 1, Color: m.lighting.Volume.color(level), DurationMS: m.lighting.Volume.DurationMS, At: time.Now().UnixMilli()}
+		}
+		m.status.Volume = level
+		m.status.VolumeKnown = true
+		m.status.Sequence++
+		m.broadcastLocked()
+	}
+}
+
 func (m *aliceMonitor) volumeLine(line string) {
 	if !strings.Contains(line, "onVolumeChanged:") {
 		return

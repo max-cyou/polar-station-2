@@ -5,11 +5,12 @@ import "@fontsource-variable/golos-text";
 import "./style.css";
 import { MatrixDisplay } from "./components/MatrixDisplay";
 import { MusicCard } from "./components/MusicCard";
+import { MusicQueue } from "./components/MusicQueue";
 
 function App() {
-  const [firmware, setFirmware] = useState<string | null>(null);
-  const [firmwareError, setFirmwareError] = useState(false);
-  const firmwareParts = firmware?.split(".") ?? [];
+  const [queueTrackId, setQueueTrackId] = useState("");
+  const [queueSwitching, setQueueSwitching] = useState(false);
+  const [uptime, setUptime] = useState<number | null>(null);
   const [alicePending, setAlicePending] = useState(false);
   const [aliceStarting, setAliceStarting] = useState(false);
   const [aliceState, setAliceState] = useState("unknown");
@@ -91,29 +92,18 @@ function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    async function loadFirmware() {
+    async function loadUptime() {
       try {
-        const response = await fetch("/api/station", {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        if (!response.ok) throw new Error("Firmware unavailable");
-        const data: unknown = await response.json();
-        if (!data || typeof data !== "object" || !("firmware" in data) || typeof data.firmware !== "string" || !data.firmware.trim()) {
-          throw new Error("Invalid firmware response");
-        }
-        setFirmware(data.firmware);
-        setFirmwareError(false);
-      } catch {
-        if (!controller.signal.aborted) setFirmwareError(true);
-      }
+        const response = await fetch("/api/station/uptime", { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (typeof data.uptime !== "number" || !Number.isFinite(data.uptime) || data.uptime < 0) throw new Error();
+        setUptime(data.uptime);
+      } catch { if (!controller.signal.aborted) setUptime(null); }
     }
-    void loadFirmware();
-    const interval = window.setInterval(loadFirmware, 60_000);
-    return () => {
-      controller.abort();
-      window.clearInterval(interval);
-    };
+    void loadUptime();
+    const interval = window.setInterval(loadUptime, 60_000);
+    return () => { controller.abort(); window.clearInterval(interval); };
   }, []);
 
   return (
@@ -131,14 +121,7 @@ function App() {
           {volumePulse && <div key={volumePulse.id} className="volume-pulse" aria-hidden="true" style={{ "--volume-color": volumePulse.color, animationDuration: `${volumePulse.durationMs}ms` } as React.CSSProperties} onAnimationEnd={() => setVolumePulse(previous => previous?.id === volumePulse.id ? null : previous)} />}
           <div className="station-heading">
             <h1>Моя станция</h1>
-            <p aria-live="polite">
-              {firmwareError ? "Прошивка недоступна" : firmware ? (
-                <>
-                  {firmwareParts.slice(0, 5).join(".")}
-                  {firmwareParts.length > 5 && <><br />{firmwareParts.slice(5).join(".")}</>}
-                </>
-              ) : "Загрузка…"}
-            </p>
+            <p className="station-uptime">{uptime === null ? "Время работы недоступно" : `Работает ${Math.floor(uptime / 86400) ? `${Math.floor(uptime / 86400)} д ` : ""}${Math.floor(uptime / 3600) % 24} ч ${Math.floor(uptime / 60) % 60} мин`}</p>
           </div>
           <MatrixDisplay active={aliceActive} musicPlaying={musicPlaying} />
             <button className="alice-button" type="button" aria-label={aliceLabel} title={aliceLabel} onClick={wakeAlice} disabled={alicePending || aliceActive} aria-busy={aliceStarting} data-state={aliceState}>
@@ -150,14 +133,14 @@ function App() {
             </button>
         </div>
         <div className="dashboard-right">
-          <MusicCard />
+          <MusicCard onTrackChange={setQueueTrackId} onTrackSwitching={setQueueSwitching} />
           <div className="dashboard-bottom">
           <section className="volume-card" aria-label="Громкость">
             <Volume2 size={18} aria-hidden="true" />
             <input type="range" min="0" max="10" step="0.5" value={volumeDraft ?? volume ?? 0} disabled={volume === null} aria-label="Громкость" onChange={event => setVolumeDraft(Number(event.target.value))} onPointerUp={event => void changeVolume(Number(event.currentTarget.value))} onKeyUp={event => { if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(event.key)) void changeVolume(Number(event.currentTarget.value)); }} />
             <span>{volumeDraft ?? volume ?? "—"}</span>
           </section>
-          <div className="dashboard-extra" />
+          <MusicQueue trackId={queueTrackId} switching={queueSwitching} />
           </div>
         </div>
       </main>
