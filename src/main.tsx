@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AudioLines, CircleAlert, Ellipsis, LayoutDashboard, LoaderCircle, Mic, X } from "lucide-react";
+import { AudioLines, CircleAlert, Ellipsis, LayoutDashboard, LoaderCircle, Mic, Volume2, X } from "lucide-react";
 import "@fontsource-variable/golos-text";
 import "./style.css";
 import { MatrixDisplay } from "./components/MatrixDisplay";
+import { MusicCard } from "./components/MusicCard";
 
 function App() {
   const [firmware, setFirmware] = useState<string | null>(null);
@@ -14,6 +15,8 @@ function App() {
   const [aliceState, setAliceState] = useState("unknown");
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [volumePulse, setVolumePulse] = useState<{ id: number; color: string; durationMs: number } | null>(null);
+  const [volume, setVolume] = useState<number | null>(null);
+  const [volumeDraft, setVolumeDraft] = useState<number | null>(null);
   const lastVolumePulse = useRef<number | null>(null);
   const stateSequence = useRef(0);
   const waitingForConfirmation = useRef<number | null>(null);
@@ -29,6 +32,7 @@ function App() {
         stateSequence.current = data.sequence;
         setAliceState(data.available ? data.state : "unknown");
         setMusicPlaying(data.musicPlaying === true);
+        if (data.volumeKnown && typeof data.volume === "number") setVolume(data.volume);
         const pulse = data.volumePulse;
         if (pulse && typeof pulse.id === "number") {
           if (lastVolumePulse.current !== null && pulse.id > lastVolumePulse.current && typeof pulse.ageMs === "number" && pulse.ageMs < 1500 && typeof pulse.color === "string" && /^#[0-9a-f]{6}$/i.test(pulse.color) && typeof pulse.durationMs === "number" && pulse.durationMs >= 100 && pulse.durationMs <= 3000) {
@@ -45,6 +49,15 @@ function App() {
     events.onerror = () => { setAliceState("unknown"); setMusicPlaying(false); };
     return () => events.close();
   }, []);
+  async function changeVolume(value: number) {
+    setVolumeDraft(value);
+    try {
+      const response = await fetch("/api/music/command", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: "setVolume", volume: value / 10 }), signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) throw new Error();
+      setVolume(value);
+    } catch { setAliceError("Не удалось изменить громкость"); }
+    finally { setVolumeDraft(null); }
+  }
   useEffect(() => {
     if (!aliceError) return;
     const timer = window.setTimeout(() => setAliceError(""), 5000);
@@ -128,7 +141,6 @@ function App() {
             </p>
           </div>
           <MatrixDisplay active={aliceActive} musicPlaying={musicPlaying} />
-          <div className="station-actions">
             <button className="alice-button" type="button" aria-label={aliceLabel} title={aliceLabel} onClick={wakeAlice} disabled={alicePending || aliceActive} aria-busy={aliceStarting} data-state={aliceState}>
               <span className="alice-icon" data-active={aliceStarting} aria-hidden="true"><LoaderCircle className="alice-spinner" size={22} /></span>
               <span className="alice-icon" data-active={!aliceStarting && aliceState === "listening"} aria-hidden="true"><Mic size={23} strokeWidth={1.8} /></span>
@@ -136,6 +148,16 @@ function App() {
               <span className="alice-icon" data-active={!aliceStarting && aliceState === "speaking"} aria-hidden="true"><AudioLines className="alice-voice" size={24} strokeWidth={1.8} /></span>
               <span className="alice-icon" data-active={!aliceStarting && !["listening", "busy", "speaking"].includes(aliceState)} aria-hidden="true"><AudioLines size={24} strokeWidth={1.8} /></span>
             </button>
+        </div>
+        <div className="dashboard-right">
+          <MusicCard />
+          <div className="dashboard-bottom">
+          <section className="volume-card" aria-label="Громкость">
+            <Volume2 size={18} aria-hidden="true" />
+            <input type="range" min="0" max="10" step="0.5" value={volumeDraft ?? volume ?? 0} disabled={volume === null} aria-label="Громкость" onChange={event => setVolumeDraft(Number(event.target.value))} onPointerUp={event => void changeVolume(Number(event.currentTarget.value))} onKeyUp={event => { if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(event.key)) void changeVolume(Number(event.currentTarget.value)); }} />
+            <span>{volumeDraft ?? volume ?? "—"}</span>
+          </section>
+          <div className="dashboard-extra" />
           </div>
         </div>
       </main>

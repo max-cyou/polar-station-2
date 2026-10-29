@@ -24,20 +24,22 @@ type aliceStatus struct {
 }
 
 type aliceMonitor struct {
-	mu             sync.Mutex
-	status         aliceStatus
-	subscribers    map[chan aliceStatus]struct{}
-	path           string
-	previous       os.FileInfo
-	offset         int64
-	remainder      string
-	musicPath      string
-	musicPrevious  os.FileInfo
-	musicOffset    int64
-	musicRemainder string
-	musicPlayers   map[string]bool
-	lighting       lightingConfig
-	volumeLive     bool
+	mu              sync.Mutex
+	status          aliceStatus
+	subscribers     map[chan aliceStatus]struct{}
+	path            string
+	previous        os.FileInfo
+	offset          int64
+	remainder       string
+	musicPath       string
+	musicPrevious   os.FileInfo
+	musicOffset     int64
+	musicRemainder  string
+	musicPlayers    map[string]bool
+	musicRemote     bool
+	logMusicPlaying bool
+	lighting        lightingConfig
+	volumeLive      bool
 }
 
 func newAliceMonitor(path string) *aliceMonitor {

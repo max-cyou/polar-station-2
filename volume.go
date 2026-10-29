@@ -25,6 +25,9 @@ type volumeLighting struct {
 
 type lightingConfig struct {
 	Volume volumeLighting `json:"volume"`
+	Music  struct {
+		AdaptiveBackground bool `json:"adaptiveBackground"`
+	} `json:"music"`
 }
 
 type volumePulse struct {
@@ -42,6 +45,10 @@ func (p volumePulse) forDelivery() volumePulse {
 
 func loadLighting(path string) (lightingConfig, error) {
 	data := lightingDefaults
+	var config lightingConfig
+	if err := json.Unmarshal(lightingDefaults, &config); err != nil {
+		return config, err
+	}
 	var err error
 	if path != "" {
 		data, err = os.ReadFile(path)
@@ -49,7 +56,6 @@ func loadLighting(path string) (lightingConfig, error) {
 			return lightingConfig{}, err
 		}
 	}
-	var config lightingConfig
 	if err = json.Unmarshal(data, &config); err != nil {
 		return config, err
 	}

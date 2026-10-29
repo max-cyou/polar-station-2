@@ -9,6 +9,25 @@ import (
 func (m *aliceMonitor) setMusicPlaying(playing bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.logMusicPlaying = playing
+	if m.musicRemote {
+		return
+	}
+	if m.status.MusicPlaying == playing {
+		return
+	}
+	m.status.MusicPlaying = playing
+	m.status.Sequence++
+	m.broadcastLocked()
+}
+
+func (m *aliceMonitor) setGlagolMusic(connected, playing bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.musicRemote = connected
+	if !connected {
+		playing = m.logMusicPlaying
+	}
 	if m.status.MusicPlaying == playing {
 		return
 	}

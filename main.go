@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -20,12 +21,21 @@ import (
 //go:embed dist
 var frontend embed.FS
 
-func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) error, monitors ...*aliceMonitor) http.Handler {
+func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) error, auth *yandexAuth, music *musicClient, monitors ...*aliceMonitor) http.Handler {
 	mux := http.NewServeMux()
+	if auth != nil {
+		auth.routes(mux)
+	}
+	if music != nil {
+		music.routes(mux)
+	}
 	monitor := newAliceMonitor("")
 	if len(monitors) > 0 {
 		monitor = monitors[0]
 	}
+	mux.HandleFunc("GET /api/appearance", func(w http.ResponseWriter, r *http.Request) {
+		authWrite(w, http.StatusOK, map[string]any{"music": monitor.lighting.Music})
+	})
 	mux.HandleFunc("GET /api/alice/events", monitor.events)
 	mux.HandleFunc("GET /api/alice/state", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -94,11 +104,20 @@ func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) 
 }
 
 func main() {
+	executable, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
 	listen := flag.String("listen", ":8080", "HTTP listen address")
 	firmwarePath := flag.String("firmware-file", "/system/vendor/quasar/version_full", "Local firmware version file")
 	aliceLog := flag.String("alice-log", "/data/quasar/daemons_logs/maind.log", "Alice state log")
 	lightingPath := flag.String("lighting-config", "", "Optional lighting JSON configuration")
+	authPath := flag.String("auth-file", filepath.Join(filepath.Dir(executable), "auth.json"), "Persistent Yandex authorization file")
 	flag.Parse()
+	auth, err := newYandexAuth(*authPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	lighting, err := loadLighting(*lightingPath)
 	if err != nil {
 		log.Fatal(err)
@@ -110,13 +129,15 @@ func main() {
 	monitor.poll()
 	monitor.pollMusic()
 	go monitor.run(ctx)
+	music := newMusicClient(auth, monitor)
+	go music.run(ctx)
 	assets, err := fs.Sub(frontend, "dist")
 	if err != nil {
 		log.Fatal(err)
 	}
 	server := &http.Server{
 		Addr:              *listen,
-		Handler:           newHandler(assets, *firmwarePath, listenAlice, monitor),
+		Handler:           newHandler(assets, *firmwarePath, listenAlice, auth, music, monitor),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}

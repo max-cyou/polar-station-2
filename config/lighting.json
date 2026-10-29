@@ -1,4 +1,7 @@
 {
+  "music": {
+    "adaptiveBackground": true
+  },
   "volume": {
     "low": "#45d778",
     "middle": "#f2cd45",

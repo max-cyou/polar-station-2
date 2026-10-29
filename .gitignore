@@ -4,3 +4,6 @@ dist/
 .DS_Store
 .env*
 bin/
+auth.json
+*.auth.json
+.polar-auth-*
