@@ -73,6 +73,10 @@ func (m *musicClient) queueRoute(w http.ResponseWriter, r *http.Request) {
 	current, next := queueTrackID(player.ID), queueTrackID(player.EntityInfo.Next.ID)
 	var tracks []queueTrack
 	pid := rawID(player.PlaylistID)
+	source := strings.TrimSpace(player.PlaylistDescription)
+	if pid == "user:onyourwave" {
+		source = "Моя волна"
+	}
 	// The catalogue order is meaningful only when the station confirms shuffle is off.
 	if player.EntityInfo.Shuffled != nil && !*player.EntityInfo.Shuffled && pid != "" {
 		switch player.PlaylistType {
@@ -80,10 +84,14 @@ func (m *musicClient) queueRoute(w http.ResponseWriter, r *http.Request) {
 			if musicTrackID.MatchString(pid) {
 				var result struct {
 					Result struct {
+						Title   string         `json:"title"`
 						Volumes [][]queueTrack `json:"volumes"`
 					} `json:"result"`
 				}
 				if musicAPI(r.Context(), token, http.MethodGet, "/albums/"+url.PathEscape(pid)+"/with-tracks", nil, &result) == nil {
+					if result.Result.Title != "" {
+						source = result.Result.Title
+					}
 					for _, volume := range result.Result.Volumes {
 						tracks = append(tracks, volume...)
 					}
@@ -97,16 +105,47 @@ func (m *musicClient) queueRoute(w http.ResponseWriter, r *http.Request) {
 			if musicTrackID.MatchString(owner) && musicTrackID.MatchString(kind) {
 				var result struct {
 					Result struct {
+						Title  string `json:"title"`
 						Tracks []struct {
 							Track queueTrack `json:"track"`
 						} `json:"tracks"`
 					} `json:"result"`
 				}
 				if musicAPI(r.Context(), token, http.MethodGet, "/users/"+url.PathEscape(owner)+"/playlists/"+url.PathEscape(kind), nil, &result) == nil {
+					if result.Result.Title != "" {
+						source = result.Result.Title
+					}
 					for _, item := range result.Result.Tracks {
 						tracks = append(tracks, item.Track)
 					}
 				}
+			}
+		}
+	}
+	if source == "" {
+		var path string
+		switch player.PlaylistType {
+		case "Album":
+			if musicTrackID.MatchString(pid) {
+				path = "/albums/" + url.PathEscape(pid)
+			}
+		case "Playlist":
+			owner, kind, ok := strings.Cut(pid, ":")
+			if !ok {
+				owner, kind = rawID(player.PlaylistPUID), pid
+			}
+			if musicTrackID.MatchString(owner) && musicTrackID.MatchString(kind) {
+				path = "/users/" + url.PathEscape(owner) + "/playlists/" + url.PathEscape(kind)
+			}
+		}
+		if path != "" {
+			var result struct {
+				Result struct {
+					Title string `json:"title"`
+				} `json:"result"`
+			}
+			if musicAPI(r.Context(), token, http.MethodGet, path, nil, &result) == nil {
+				source = result.Result.Title
 			}
 		}
 	}
@@ -136,5 +175,5 @@ func (m *musicClient) queueRoute(w http.ResponseWriter, r *http.Request) {
 			items = []queueItem{}
 		}
 	}
-	authWrite(w, 200, map[string]any{"tracks": items, "trackId": current})
+	authWrite(w, 200, map[string]any{"tracks": items, "trackId": current, "source": source})
 }

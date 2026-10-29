@@ -7,3 +7,4 @@ bin/
 auth.json
 *.auth.json
 .polar-auth-*
+lighting.user.json

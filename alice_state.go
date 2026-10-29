@@ -39,6 +39,7 @@ type aliceMonitor struct {
 	musicRemote     bool
 	logMusicPlaying bool
 	lighting        lightingConfig
+	lightingPath    string
 	volumeLive      bool
 }
 

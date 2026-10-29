@@ -11,6 +11,7 @@ const placeholders: Track[] = [
 
 export function MusicQueue({ trackId, switching }: { trackId: string; switching: boolean }) {
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [source, setSource] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "signedOut" | "error">("loading");
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function MusicQueue({ trackId, switching }: { trackId: string; switching:
       let retry = false;
       try {
         const response = await fetch("/api/music/queue", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]), cache: "no-store" });
-        if (response.status === 401) { setTracks([]); setStatus("signedOut"); return; }
+        if (response.status === 401) { setTracks([]); setSource(""); setStatus("signedOut"); return; }
         if (!response.ok) throw new Error();
         const data = await response.json();
         if (!Array.isArray(data.tracks)) throw new Error();
@@ -33,8 +34,8 @@ export function MusicQueue({ trackId, switching }: { trackId: string; switching:
           return;
         }
         mismatches = 0;
-        if (!controller.signal.aborted) { setTracks(data.tracks); setStatus("ready"); }
-      } catch { if (!controller.signal.aborted) { setTracks([]); setStatus("error"); } }
+        if (!controller.signal.aborted) { setTracks(data.tracks); setSource(typeof data.source === "string" ? data.source : ""); setStatus("ready"); }
+      } catch { if (!controller.signal.aborted) { setTracks([]); setSource(""); setStatus("error"); } }
       finally { if (!controller.signal.aborted) timer = window.setTimeout(update, retry ? 1000 : 15_000); }
     }
     void update();
@@ -46,7 +47,7 @@ export function MusicQueue({ trackId, switching }: { trackId: string; switching:
   const visibleTracks = [...actualTracks, ...placeholders.slice(actualTracks.length)];
   return <section className="dashboard-extra" aria-label="Следующие треки">
     <div className={`queue-content${status === "loading" || switching ? " loading" : ""}`}>
-      <h2>Далее</h2>
+      <div className="queue-heading"><h2>Далее</h2>{source && <span title={source}>{source}</span>}</div>
       <div className="queue-list">{visibleTracks.map((track, index) => <div className={`queue-track${index >= actualTracks.length ? " placeholder" : ""}`} key={`${track.id}-${index}`}>
         <div className="queue-cover">{track.cover && <img src={track.cover} alt="" referrerPolicy="no-referrer" />}</div>
         <div className="queue-labels"><div className="queue-title" title={track.title}>{track.title}</div><div className="queue-artist" title={track.artist}>{track.artist || "Неизвестный исполнитель"}</div></div>

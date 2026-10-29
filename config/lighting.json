@@ -1,4 +1,8 @@
 {
+  "alice": {
+    "color": "#a45cf5",
+    "enabled": true
+  },
   "music": {
     "adaptiveBackground": true
   },

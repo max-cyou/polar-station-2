@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -24,6 +25,40 @@ var frontend embed.FS
 
 func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) error, auth *yandexAuth, music *musicClient, monitors ...*aliceMonitor) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/system", systemInfoHandler())
+	mux.HandleFunc("POST /api/system/power", func(w http.ResponseWriter, r *http.Request) {
+		if origin := r.Header.Get("Origin"); origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host != r.Host {
+				authWrite(w, http.StatusForbidden, map[string]string{"error": "Запрос с другого сайта запрещён"})
+				return
+			}
+		}
+		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || mediaType != "application/json" {
+			authWrite(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Нужен JSON-запрос"})
+			return
+		}
+		var request struct {
+			Action string `json:"action"`
+		}
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&request) != nil || (request.Action != "reboot" && request.Action != "poweroff") {
+			authWrite(w, http.StatusBadRequest, map[string]string{"error": "Неизвестное действие"})
+			return
+		}
+		command := "/sbin/" + request.Action
+		if _, err := os.Stat(command); err != nil {
+			authWrite(w, http.StatusServiceUnavailable, map[string]string{"error": "Действие недоступно"})
+			return
+		}
+		authWrite(w, http.StatusOK, map[string]bool{"ok": true})
+		go func() {
+			time.Sleep(time.Second)
+			if err := exec.Command(command).Run(); err != nil {
+				log.Printf("Power action: %v", err)
+			}
+		}()
+	})
 	if auth != nil {
 		auth.routes(mux)
 	}
@@ -34,9 +69,9 @@ func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) 
 	if len(monitors) > 0 {
 		monitor = monitors[0]
 	}
-	mux.HandleFunc("GET /api/appearance", func(w http.ResponseWriter, r *http.Request) {
-		authWrite(w, http.StatusOK, map[string]any{"music": monitor.lighting.Music})
-	})
+	mux.HandleFunc("GET /api/appearance", monitor.appearance)
+	mux.HandleFunc("POST /api/appearance", monitor.appearance)
+	mux.HandleFunc("POST /api/appearance/brightness", monitor.brightness)
 	mux.HandleFunc("GET /api/alice/events", monitor.events)
 	mux.HandleFunc("GET /api/alice/state", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -140,10 +175,25 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	monitor := newAliceMonitor(*aliceLog)
+	monitor.lightingPath = filepath.Join(filepath.Dir(executable), "lighting.user.json")
+	if _, err := os.Stat(monitor.lightingPath); err == nil {
+		lighting, err = loadLighting(monitor.lightingPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if !os.IsNotExist(err) {
+		log.Fatal(err)
+	}
 	monitor.lighting = lighting
+	if lighting.Brightness != nil {
+		if err := writeBrightness(*lighting.Brightness); err != nil {
+			log.Printf("Physical brightness: %v", err)
+		}
+	}
 	monitor.poll()
 	monitor.pollMusic()
 	go monitor.run(ctx)
+
 	music := newMusicClient(auth, monitor)
 	go music.run(ctx)
 	assets, err := fs.Sub(frontend, "dist")

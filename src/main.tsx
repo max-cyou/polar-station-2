@@ -1,15 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { AudioLines, CircleAlert, Ellipsis, LayoutDashboard, LoaderCircle, Mic, Volume2, X } from "lucide-react";
+import { AudioLines, CircleAlert, Ellipsis, LoaderCircle, Mic, Power, RotateCw, Volume2, X } from "lucide-react";
 import "@fontsource-variable/golos-text";
 import "./style.css";
 import { MatrixDisplay } from "./components/MatrixDisplay";
 import { MusicCard } from "./components/MusicCard";
 import { MusicQueue } from "./components/MusicQueue";
+import { SystemInfo } from "./components/SystemInfo";
+import { LightingSettings } from "./components/LightingSettings";
 
 function App() {
+  const [lightingBrightness, setLightingBrightness] = useState(100);
+  const [aliceLighting, setAliceLighting] = useState({ color: "#a45cf5", enabled: true });
   const [queueTrackId, setQueueTrackId] = useState("");
   const [queueSwitching, setQueueSwitching] = useState(false);
+  const [powerPending, setPowerPending] = useState(false);
+  const [powerConfirmation, setPowerConfirmation] = useState<"poweroff" | "reboot" | null>(null);
+  const powerDialog = useRef<HTMLDialogElement>(null);
   const [uptime, setUptime] = useState<number | null>(null);
   const [alicePending, setAlicePending] = useState(false);
   const [aliceStarting, setAliceStarting] = useState(false);
@@ -24,6 +31,10 @@ function App() {
   const aliceActive = ["listening", "busy", "speaking"].includes(aliceState);
   const aliceLabel = aliceStarting ? "Вызываю Алису" : aliceState === "listening" ? "Алиса слушает" : aliceState === "speaking" ? "Алиса говорит" : aliceState === "busy" ? "Алиса думает" : "Вызвать Алису";
   const [aliceError, setAliceError] = useState("");
+  useEffect(() => {
+    if (powerConfirmation && !powerDialog.current?.open) powerDialog.current?.showModal();
+    if (!powerConfirmation && powerDialog.current?.open) powerDialog.current.close();
+  }, [powerConfirmation]);
   useEffect(() => {
     const events = new EventSource("/api/alice/events");
     events.onmessage = (event) => {
@@ -58,6 +69,15 @@ function App() {
       setVolume(value);
     } catch { setAliceError("Не удалось изменить громкость"); }
     finally { setVolumeDraft(null); }
+  }
+  async function powerAction(action: "poweroff" | "reboot") {
+    if (powerPending) return;
+    setPowerConfirmation(null);
+    setPowerPending(true);
+    try {
+      const response = await fetch("/api/system/power", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }), signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error();
+    } catch { setAliceError("Не удалось выполнить действие"); setPowerPending(false); }
   }
   useEffect(() => {
     if (!aliceError) return;
@@ -108,15 +128,11 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <nav aria-label="Основная навигация">
-          <a href="#dashboard" className="nav-active" aria-current="page" aria-label="Дашборд" title="Дашборд">
-            <LayoutDashboard size={18} />
-          </a>
-        </nav>
-      </aside>
-      <main id="dashboard" aria-label="Дашборд">
-        <div className={`dashboard-block${aliceActive ? " alice-calling" : ""}${aliceState === "speaking" ? " alice-speaking" : aliceState === "busy" ? " alice-thinking" : ""}`}>
+      <main aria-label="Панель станции">
+        <div className="dashboard-layout">
+        <div className="dashboard-primary">
+        <div className="dashboard-top">
+        <div className={`dashboard-block${aliceActive && aliceLighting.enabled ? " alice-calling" : ""}${aliceState === "speaking" && aliceLighting.enabled ? " alice-speaking" : aliceState === "busy" && aliceLighting.enabled ? " alice-thinking" : ""}`} style={{ "--alice-primary": aliceLighting.color, "--lighting-brightness": lightingBrightness / 100 } as React.CSSProperties}>
           <div className="alice-speech-halo" aria-hidden="true" />
           {volumePulse && <div key={volumePulse.id} className="volume-pulse" aria-hidden="true" style={{ "--volume-color": volumePulse.color, animationDuration: `${volumePulse.durationMs}ms` } as React.CSSProperties} onAnimationEnd={() => setVolumePulse(previous => previous?.id === volumePulse.id ? null : previous)} />}
           <div className="station-heading">
@@ -143,7 +159,17 @@ function App() {
           <MusicQueue trackId={queueTrackId} switching={queueSwitching} />
           </div>
         </div>
+        </div>
+        <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} /></div>
+        </div>
+        <div className="dashboard-side-blocks"><div className="dashboard-side-block" /><div className="dashboard-side-block" /></div>
+        </div>
       </main>
+      <dialog className="auth-dialog power-dialog" ref={powerDialog} aria-labelledby="power-dialog-title" aria-describedby="power-dialog-description" onClose={() => setPowerConfirmation(null)} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setPowerConfirmation(null); } }}>
+        <div className="auth-dialog-heading"><h2 id="power-dialog-title">{powerConfirmation === "poweroff" ? "Выключить станцию?" : "Перезагрузить станцию?"}</h2><button type="button" className="auth-close" aria-label="Закрыть" onClick={() => setPowerConfirmation(null)}><X size={19} /></button></div>
+        <p id="power-dialog-description">{powerConfirmation === "poweroff" ? "Для повторного включения потребуется переподключить питание." : "Станция будет временно недоступна."}</p>
+        <div className="power-dialog-actions"><button type="button" className="auth-button" autoFocus onClick={() => setPowerConfirmation(null)}>Отмена</button><button type="button" className="auth-button power-confirm" onClick={() => { if (powerConfirmation) void powerAction(powerConfirmation); }}>{powerConfirmation === "poweroff" ? "Выключить" : "Перезагрузить"}</button></div>
+      </dialog>
       {aliceError && (
         <div className="error-toast" role="alert">
           <CircleAlert size={18} aria-hidden="true" />

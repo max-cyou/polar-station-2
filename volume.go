@@ -24,6 +24,11 @@ type volumeLighting struct {
 }
 
 type lightingConfig struct {
+	Brightness *int `json:"brightness,omitempty"`
+	Alice      struct {
+		Color   string `json:"color"`
+		Enabled bool   `json:"enabled"`
+	} `json:"alice"`
 	Volume volumeLighting `json:"volume"`
 	Music  struct {
 		AdaptiveBackground bool `json:"adaptiveBackground"`
@@ -59,10 +64,13 @@ func loadLighting(path string) (lightingConfig, error) {
 	if err = json.Unmarshal(data, &config); err != nil {
 		return config, err
 	}
-	for _, color := range []string{config.Volume.Low, config.Volume.Middle, config.Volume.High} {
+	for _, color := range []string{config.Alice.Color, config.Volume.Low, config.Volume.Middle, config.Volume.High} {
 		if _, err = colorRGB(color); err != nil {
 			return config, err
 		}
+	}
+	if config.Brightness != nil && (*config.Brightness < 0 || *config.Brightness > 100) {
+		return config, fmt.Errorf("brightness must be between 0 and 100")
 	}
 	if config.Volume.DurationMS < 100 || config.Volume.DurationMS > 3000 {
 		return config, fmt.Errorf("volume durationMs must be between 100 and 3000")

@@ -21,15 +21,16 @@ import (
 )
 
 type playerState struct {
-	ID           json.RawMessage `json:"id"`
-	Title        string          `json:"title"`
-	Subtitle     string          `json:"subtitle"`
-	Progress     float64         `json:"progress"`
-	Duration     float64         `json:"duration"`
-	PlaylistType string          `json:"playlistType"`
-	PlaylistID   json.RawMessage `json:"playlistId"`
-	PlaylistPUID json.RawMessage `json:"playlistPuid"`
-	EntityInfo   struct {
+	ID                  json.RawMessage `json:"id"`
+	Title               string          `json:"title"`
+	Subtitle            string          `json:"subtitle"`
+	Progress            float64         `json:"progress"`
+	Duration            float64         `json:"duration"`
+	PlaylistType        string          `json:"playlistType"`
+	PlaylistDescription string          `json:"playlistDescription"`
+	PlaylistID          json.RawMessage `json:"playlistId"`
+	PlaylistPUID        json.RawMessage `json:"playlistPuid"`
+	EntityInfo          struct {
 		Next struct {
 			ID json.RawMessage `json:"id"`
 		} `json:"next"`
