@@ -1,0 +1,8 @@
+{
+  "volume": {
+    "low": "#45d778",
+    "middle": "#f2cd45",
+    "high": "#f05252",
+    "durationMs": 750
+  }
+}

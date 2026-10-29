@@ -14,10 +14,13 @@ import (
 )
 
 type aliceStatus struct {
-	State        string `json:"state"`
-	Available    bool   `json:"available"`
-	Sequence     uint64 `json:"sequence"`
-	MusicPlaying bool   `json:"musicPlaying"`
+	State        string      `json:"state"`
+	Available    bool        `json:"available"`
+	Sequence     uint64      `json:"sequence"`
+	MusicPlaying bool        `json:"musicPlaying"`
+	Volume       float64     `json:"volume"`
+	VolumeKnown  bool        `json:"volumeKnown"`
+	VolumePulse  volumePulse `json:"volumePulse"`
 }
 
 type aliceMonitor struct {
@@ -33,10 +36,16 @@ type aliceMonitor struct {
 	musicOffset    int64
 	musicRemainder string
 	musicPlayers   map[string]bool
+	lighting       lightingConfig
+	volumeLive     bool
 }
 
 func newAliceMonitor(path string) *aliceMonitor {
-	return &aliceMonitor{path: path, musicPath: filepath.Join(filepath.Dir(path), "mediad.log"), musicPlayers: make(map[string]bool), status: aliceStatus{State: "unknown"}, subscribers: make(map[chan aliceStatus]struct{})}
+	lighting, err := loadLighting("")
+	if err != nil {
+		panic(err)
+	}
+	return &aliceMonitor{path: path, lighting: lighting, musicPath: filepath.Join(filepath.Dir(path), "mediad.log"), musicPlayers: make(map[string]bool), status: aliceStatus{State: "unknown"}, subscribers: make(map[chan aliceStatus]struct{})}
 }
 
 func parseAliceState(line string) string {
@@ -95,7 +104,9 @@ func (m *aliceMonitor) broadcastLocked() {
 func (m *aliceMonitor) snapshot() aliceStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.status
+	status := m.status
+	status.VolumePulse = status.VolumePulse.forDelivery()
+	return status
 }
 
 // Read only appended log bytes. Handle both rename rotation and truncation.
@@ -139,10 +150,12 @@ func (m *aliceMonitor) poll() {
 	lines := strings.Split(text, "\n")
 	m.remainder = lines[len(lines)-1]
 	for _, line := range lines[:len(lines)-1] {
+		m.volumeLine(line)
 		if state := parseAliceState(line); state != "" {
 			m.publish(state, true)
 		}
 	}
+	m.volumeLive = true
 }
 
 func (m *aliceMonitor) run(ctx context.Context) {
@@ -181,6 +194,7 @@ func (m *aliceMonitor) events(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case state := <-ch:
+			state.VolumePulse = state.VolumePulse.forDelivery()
 			data, _ := json.Marshal(state)
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
 				return

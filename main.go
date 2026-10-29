@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -95,11 +97,19 @@ func main() {
 	listen := flag.String("listen", ":8080", "HTTP listen address")
 	firmwarePath := flag.String("firmware-file", "/system/vendor/quasar/version_full", "Local firmware version file")
 	aliceLog := flag.String("alice-log", "/data/quasar/daemons_logs/maind.log", "Alice state log")
+	lightingPath := flag.String("lighting-config", "", "Optional lighting JSON configuration")
 	flag.Parse()
+	lighting, err := loadLighting(*lightingPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	monitor := newAliceMonitor(*aliceLog)
+	monitor.lighting = lighting
 	monitor.poll()
 	monitor.pollMusic()
-	go monitor.run(context.Background())
+	go monitor.run(ctx)
 	assets, err := fs.Sub(frontend, "dist")
 	if err != nil {
 		log.Fatal(err)
@@ -111,5 +121,13 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 	log.Printf("Polar listening on %s", *listen)
-	log.Fatal(server.ListenAndServe())
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdown)
+	}()
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Print(err)
+	}
 }

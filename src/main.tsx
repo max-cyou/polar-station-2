@@ -13,6 +13,8 @@ function App() {
   const [aliceStarting, setAliceStarting] = useState(false);
   const [aliceState, setAliceState] = useState("unknown");
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [volumePulse, setVolumePulse] = useState<{ id: number; color: string; durationMs: number } | null>(null);
+  const lastVolumePulse = useRef<number | null>(null);
   const stateSequence = useRef(0);
   const waitingForConfirmation = useRef<number | null>(null);
   const aliceActive = ["listening", "busy", "speaking"].includes(aliceState);
@@ -27,6 +29,13 @@ function App() {
         stateSequence.current = data.sequence;
         setAliceState(data.available ? data.state : "unknown");
         setMusicPlaying(data.musicPlaying === true);
+        const pulse = data.volumePulse;
+        if (pulse && typeof pulse.id === "number") {
+          if (lastVolumePulse.current !== null && pulse.id > lastVolumePulse.current && typeof pulse.ageMs === "number" && pulse.ageMs < 1500 && typeof pulse.color === "string" && /^#[0-9a-f]{6}$/i.test(pulse.color) && typeof pulse.durationMs === "number" && pulse.durationMs >= 100 && pulse.durationMs <= 3000) {
+            setVolumePulse({ id: pulse.id, color: pulse.color, durationMs: pulse.durationMs });
+          }
+          lastVolumePulse.current = pulse.id;
+        }
         if (waitingForConfirmation.current !== null && data.sequence > waitingForConfirmation.current && ["listening", "speaking"].includes(data.state) && data.available) {
           waitingForConfirmation.current = null;
           setAliceStarting(false);
@@ -106,6 +115,7 @@ function App() {
       <main id="dashboard" aria-label="Дашборд">
         <div className={`dashboard-block${aliceActive ? " alice-calling" : ""}${aliceState === "speaking" ? " alice-speaking" : aliceState === "busy" ? " alice-thinking" : ""}`}>
           <div className="alice-speech-halo" aria-hidden="true" />
+          {volumePulse && <div key={volumePulse.id} className="volume-pulse" aria-hidden="true" style={{ "--volume-color": volumePulse.color, animationDuration: `${volumePulse.durationMs}ms` } as React.CSSProperties} onAnimationEnd={() => setVolumePulse(previous => previous?.id === volumePulse.id ? null : previous)} />}
           <div className="station-heading">
             <h1>Моя станция</h1>
             <p aria-live="polite">
