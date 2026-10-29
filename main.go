@@ -98,6 +98,7 @@ func main() {
 	flag.Parse()
 	monitor := newAliceMonitor(*aliceLog)
 	monitor.poll()
+	monitor.pollMusic()
 	go monitor.run(context.Background())
 	assets, err := fs.Sub(frontend, "dist")
 	if err != nil {

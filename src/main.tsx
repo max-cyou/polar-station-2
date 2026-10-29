@@ -12,6 +12,7 @@ function App() {
   const [alicePending, setAlicePending] = useState(false);
   const [aliceStarting, setAliceStarting] = useState(false);
   const [aliceState, setAliceState] = useState("unknown");
+  const [musicPlaying, setMusicPlaying] = useState(false);
   const stateSequence = useRef(0);
   const waitingForConfirmation = useRef<number | null>(null);
   const aliceActive = ["listening", "busy", "speaking"].includes(aliceState);
@@ -25,13 +26,14 @@ function App() {
         if (!data || !["idle", "listening", "busy", "speaking", "unknown"].includes(data.state) || typeof data.available !== "boolean" || typeof data.sequence !== "number") return;
         stateSequence.current = data.sequence;
         setAliceState(data.available ? data.state : "unknown");
+        setMusicPlaying(data.musicPlaying === true);
         if (waitingForConfirmation.current !== null && data.sequence > waitingForConfirmation.current && ["listening", "speaking"].includes(data.state) && data.available) {
           waitingForConfirmation.current = null;
           setAliceStarting(false);
         }
       } catch { /* Ignore malformed events; the stream reconnects on transport errors. */ }
     };
-    events.onerror = () => setAliceState("unknown");
+    events.onerror = () => { setAliceState("unknown"); setMusicPlaying(false); };
     return () => events.close();
   }, []);
   useEffect(() => {
@@ -115,7 +117,7 @@ function App() {
               ) : "Загрузка…"}
             </p>
           </div>
-          <MatrixDisplay active={aliceActive} />
+          <MatrixDisplay active={aliceActive} musicPlaying={musicPlaying} />
           <div className="station-actions">
             <button className="alice-button" type="button" aria-label={aliceLabel} title={aliceLabel} onClick={wakeAlice} disabled={alicePending || aliceActive} aria-busy={aliceStarting} data-state={aliceState}>
               <span className="alice-icon" data-active={aliceStarting} aria-hidden="true"><LoaderCircle className="alice-spinner" size={22} /></span>

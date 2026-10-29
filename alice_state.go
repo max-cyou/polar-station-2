@@ -7,29 +7,36 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
 type aliceStatus struct {
-	State     string `json:"state"`
-	Available bool   `json:"available"`
-	Sequence  uint64 `json:"sequence"`
+	State        string `json:"state"`
+	Available    bool   `json:"available"`
+	Sequence     uint64 `json:"sequence"`
+	MusicPlaying bool   `json:"musicPlaying"`
 }
 
 type aliceMonitor struct {
-	mu          sync.Mutex
-	status      aliceStatus
-	subscribers map[chan aliceStatus]struct{}
-	path        string
-	previous    os.FileInfo
-	offset      int64
-	remainder   string
+	mu             sync.Mutex
+	status         aliceStatus
+	subscribers    map[chan aliceStatus]struct{}
+	path           string
+	previous       os.FileInfo
+	offset         int64
+	remainder      string
+	musicPath      string
+	musicPrevious  os.FileInfo
+	musicOffset    int64
+	musicRemainder string
+	musicPlayers   map[string]bool
 }
 
 func newAliceMonitor(path string) *aliceMonitor {
-	return &aliceMonitor{path: path, status: aliceStatus{State: "unknown"}, subscribers: make(map[chan aliceStatus]struct{})}
+	return &aliceMonitor{path: path, musicPath: filepath.Join(filepath.Dir(path), "mediad.log"), musicPlayers: make(map[string]bool), status: aliceStatus{State: "unknown"}, subscribers: make(map[chan aliceStatus]struct{})}
 }
 
 func parseAliceState(line string) string {
@@ -62,7 +69,13 @@ func (m *aliceMonitor) publish(state string, available bool) {
 	if m.status.State == state && m.status.Available == available {
 		return
 	}
-	m.status = aliceStatus{State: state, Available: available, Sequence: m.status.Sequence + 1}
+	m.status.State = state
+	m.status.Available = available
+	m.status.Sequence++
+	m.broadcastLocked()
+}
+
+func (m *aliceMonitor) broadcastLocked() {
 	for ch := range m.subscribers {
 		select {
 		case ch <- m.status:
@@ -141,6 +154,7 @@ func (m *aliceMonitor) run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			m.poll()
+			m.pollMusic()
 		}
 	}
 }
