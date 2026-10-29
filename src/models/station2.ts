@@ -160,9 +160,9 @@ function panelTexture() {
   return texture;
 }
 
-export function createStation2() {
+export function createStation2(light: "off" | "purple" = "off") {
   const group = new THREE.Group();
-  group.name = "Yandex_Station_2_Anthracite";
+  group.name = `Yandex_Station_2_Anthracite_${light}`;
   group.userData = { dimensionsMillimeters: [123, 199, 99], reconstruction: "Approximate original model from photographs", reference: "https://habr.com/ru/articles/669924/" };
   const plastic = new THREE.MeshStandardMaterial({ color: "#14171d", roughness: .73, metalness: .08 });
   const rubber = new THREE.MeshStandardMaterial({ color: "#080a0d", roughness: .95 });
@@ -173,11 +173,14 @@ export function createStation2() {
     mesh.name = name; mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true;
     group.add(mesh); return mesh;
   }
-  add("Fabric_body", fabricBody(), new THREE.MeshPhysicalMaterial({ ...fabricMaps(), color: "#44474c", roughness: .98, normalScale: new THREE.Vector2(1.2, 1.2), sheen: .1, sheenColor: new THREE.Color("#3b3e44"), sheenRoughness: .95 }));
+  add("Fabric_body", fabricBody(), new THREE.MeshPhysicalMaterial({ ...fabricMaps(), color: "#44474c", roughness: .98, normalScale: new THREE.Vector2(1.55, 1.55), sheen: .1, sheenColor: new THREE.Color("#3b3e44"), sheenRoughness: .95 }));
   add("Recessed_rubber_base", slab(.115, .091, .015, .004, .0007), rubber);
   add("Top_bezel", slab(W, D, R, .0035, .0006), plastic, 0, .195, 0);
-  const glow = panelTexture();
-  add("LED_diffuser", topFace(.1216, .0976, .0165), new THREE.MeshStandardMaterial({ map: glow, emissiveMap: glow, emissive: "#ffffff", emissiveIntensity: .75, roughness: .55, metalness: .05 }), 0, .199, 0);
+  const glow = light === "purple" ? panelTexture() : null;
+  const diffuser = glow
+    ? new THREE.MeshStandardMaterial({ map: glow, emissiveMap: glow, emissive: "#ffffff", emissiveIntensity: .75, roughness: .55, metalness: .05 })
+    : new THREE.MeshStandardMaterial({ color: "#1b1e25", roughness: .72, metalness: .05 });
+  add("LED_diffuser", topFace(.1216, .0976, .0165), diffuser, 0, .199, 0);
   add("Touch_controls", slab(.072, .021, .0105, .00035, .00006), new THREE.MeshStandardMaterial({ color: "#10121b", roughness: .64 }), 0, .1991, 0);
   const minus = new THREE.BoxGeometry(.0038, .00011, .00045);
   add("Volume_minus", minus, markings, -.024, .1996, 0);
@@ -192,7 +195,9 @@ export function createStation2() {
   hole.bezierCurveTo(-.0035, -.0012, -.0015, .0028, 0, .0038);
   alice.holes.push(hole);
   const aliceGeo = new THREE.ShapeGeometry(alice, 24); aliceGeo.rotateX(-Math.PI / 2);
-  add("Alice_touch_symbol", aliceGeo, new THREE.MeshStandardMaterial({color:"#b692f8",emissive:"#7548dc",emissiveIntensity:.85,roughness:.6}), 0, .1997, 0);
+  add("Alice_touch_symbol", aliceGeo, light === "purple"
+    ? new THREE.MeshStandardMaterial({ color: "#b692f8", emissive: "#7548dc", emissiveIntensity: .85, roughness: .6 })
+    : new THREE.MeshStandardMaterial({ color: "#292d35", roughness: .72 }), 0, .1997, 0);
   for (const x of [-.014, .014]) for (const z of [-.0062, .0062]) {
     const geo = new THREE.CircleGeometry(.00048, 12); geo.rotateX(-Math.PI / 2);
     add(`Microphone_${x}_${z}`, geo, rubber, x, .1996, z);

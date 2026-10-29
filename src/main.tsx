@@ -60,6 +60,13 @@ function App() {
             </p>
           </div>
           <StationModel />
+          <div className="station-actions">
+            <button className="alice-button" type="button" aria-label="Алиса" title="Алиса">
+              <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+                <path fill="currentColor" d="M16 4C12.8 4 4 17.2 4 22c0 4.2 5.4 6 12 6s12-1.8 12-6C28 17.2 19.2 4 16 4Z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </main>
     </div>

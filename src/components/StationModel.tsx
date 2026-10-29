@@ -20,7 +20,7 @@ function disposeModel(root: THREE.Object3D) {
   geometries.forEach(g => g.dispose());
 }
 
-export function StationModel() {
+export function StationModel({ light = "off" }: { light?: "off" | "purple" }) {
   const container = useRef<HTMLDivElement>(null);
   const [fallback, setFallback] = useState(false);
 
@@ -86,7 +86,7 @@ export function StationModel() {
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
-    new GLTFLoader().load("/models/station2.glb", (gltf) => {
+    new GLTFLoader().load(`/models/station2-${light}.glb`, (gltf) => {
       if (disposed) { disposeModel(gltf.scene); return; }
       model = gltf.scene;
       scene.add(model);
@@ -109,7 +109,7 @@ export function StationModel() {
       renderer.domElement.remove();
       delete host.dataset.loaded;
     };
-  }, []);
+  }, [light]);
 
   return <div className="station-model" ref={container} role="img" aria-label="3D-модель Яндекс Станции 2. Вращайте перетаскиванием мышью или пальцем.">
     {fallback && <img className="station-image" src="/station.webp" alt="Яндекс Станция 2" />}
