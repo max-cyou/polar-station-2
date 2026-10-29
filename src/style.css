@@ -1,0 +1,80 @@
+:root {
+  font-family: "Golos Text Variable", sans-serif;
+  color: #e8e9ea;
+  background: #101112;
+  color-scheme: dark;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+.app-shell { display: flex; min-height: 100dvh; }
+.sidebar {
+  display: flex;
+  align-items: center;
+  width: 72px;
+  flex-shrink: 0;
+  padding: 24px 12px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  background: #151617;
+  border-top: 1px solid #ffffff0c;
+  border-bottom: 1px solid #ffffff0c;
+  border-right: 1px solid #ffffff0c;
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.nav-active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: #ffffff08;
+  color: #e8e9ea;
+  text-decoration: none;
+  font-size: 13px;
+}
+.nav-active:hover { background: #ffffff0d; }
+.nav-active:focus-visible { outline: 2px solid #a7adb2; outline-offset: 3px; }
+main { flex: 1; min-width: 0; padding: 24px; }
+.dashboard-block {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(600px, 100%);
+  height: 320px;
+  border-radius: 12px;
+  background: #191b1d;
+  border: 1px solid #ffffff0c;
+  overflow: hidden;
+}
+.station-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 24px;
+  filter: brightness(0.65);
+}
+.station-heading {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 1;
+}
+.station-heading h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 500;
+}
+.station-heading p {
+  margin: 0;
+  font-size: 12px;
+  color: #85898d;
+}
+@media (max-width: 600px) {
+  .sidebar { width: 64px; padding: 20px 8px; }
+}
