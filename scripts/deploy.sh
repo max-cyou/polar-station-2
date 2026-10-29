@@ -19,8 +19,9 @@ if [ -f "$base/polar.pid" ]; then
   pid=$(cat "$base/polar.pid")
   case "$pid" in ''|*[!0-9]*) echo 'Invalid Polar PID' >&2; exit 1;; esac
   if kill -0 "$pid" 2>/dev/null; then
+    executable=$(readlink -f "$base/polar")
     case "$(readlink "/proc/$pid/exe")" in
-      "$base/polar"|"$base/polar (deleted)") kill "$pid" ;;
+      "$executable"|"$executable (deleted)") kill "$pid" ;;
       *) echo 'PID belongs to another process; refusing to stop it' >&2; exit 1 ;;
     esac
     tries=0

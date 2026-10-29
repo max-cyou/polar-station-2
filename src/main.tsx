@@ -1,14 +1,69 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LayoutDashboard } from "lucide-react";
+import { AudioLines, CircleAlert, Ellipsis, LayoutDashboard, LoaderCircle, Mic, X } from "lucide-react";
 import "@fontsource-variable/golos-text";
 import "./style.css";
-import { StationModel } from "./components/StationModel";
+import { MatrixDisplay } from "./components/MatrixDisplay";
 
 function App() {
   const [firmware, setFirmware] = useState<string | null>(null);
   const [firmwareError, setFirmwareError] = useState(false);
   const firmwareParts = firmware?.split(".") ?? [];
+  const [alicePending, setAlicePending] = useState(false);
+  const [aliceStarting, setAliceStarting] = useState(false);
+  const [aliceState, setAliceState] = useState("unknown");
+  const stateSequence = useRef(0);
+  const waitingForConfirmation = useRef<number | null>(null);
+  const aliceActive = ["listening", "busy", "speaking"].includes(aliceState);
+  const aliceLabel = aliceStarting ? "Вызываю Алису" : aliceState === "listening" ? "Алиса слушает" : aliceState === "speaking" ? "Алиса говорит" : aliceState === "busy" ? "Алиса думает" : "Вызвать Алису";
+  const [aliceError, setAliceError] = useState("");
+  useEffect(() => {
+    const events = new EventSource("/api/alice/events");
+    events.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (!data || !["idle", "listening", "busy", "speaking", "unknown"].includes(data.state) || typeof data.available !== "boolean" || typeof data.sequence !== "number") return;
+        stateSequence.current = data.sequence;
+        setAliceState(data.available ? data.state : "unknown");
+        if (waitingForConfirmation.current !== null && data.sequence > waitingForConfirmation.current && ["listening", "speaking"].includes(data.state) && data.available) {
+          waitingForConfirmation.current = null;
+          setAliceStarting(false);
+        }
+      } catch { /* Ignore malformed events; the stream reconnects on transport errors. */ }
+    };
+    events.onerror = () => setAliceState("unknown");
+    return () => events.close();
+  }, []);
+  useEffect(() => {
+    if (!aliceError) return;
+    const timer = window.setTimeout(() => setAliceError(""), 5000);
+    return () => window.clearTimeout(timer);
+  }, [aliceError]);
+  async function wakeAlice() {
+    if (alicePending || aliceActive) return;
+    setAlicePending(true);
+    setAliceStarting(true);
+    waitingForConfirmation.current = stateSequence.current;
+    setAliceError("");
+    try {
+      const response = await fetch("/api/alice/listen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!response.ok) throw new Error("Alice unavailable");
+      if (waitingForConfirmation.current !== null) {
+        setAliceError("Алиса не подтвердила прослушивание");
+      }
+    } catch {
+      setAliceError("Не удалось вызвать Алису");
+    } finally {
+      setAlicePending(false);
+      setAliceStarting(false);
+      waitingForConfirmation.current = null;
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,7 +102,8 @@ function App() {
         </nav>
       </aside>
       <main id="dashboard" aria-label="Дашборд">
-        <div className="dashboard-block">
+        <div className={`dashboard-block${aliceActive ? " alice-calling" : ""}${aliceState === "speaking" ? " alice-speaking" : aliceState === "busy" ? " alice-thinking" : ""}`}>
+          <div className="alice-speech-halo" aria-hidden="true" />
           <div className="station-heading">
             <h1>Моя станция</h1>
             <p aria-live="polite">
@@ -59,16 +115,27 @@ function App() {
               ) : "Загрузка…"}
             </p>
           </div>
-          <StationModel />
+          <MatrixDisplay active={aliceActive} />
           <div className="station-actions">
-            <button className="alice-button" type="button" aria-label="Алиса" title="Алиса">
-              <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-                <path fill="currentColor" d="M16 4C12.8 4 4 17.2 4 22c0 4.2 5.4 6 12 6s12-1.8 12-6C28 17.2 19.2 4 16 4Z" />
-              </svg>
+            <button className="alice-button" type="button" aria-label={aliceLabel} title={aliceLabel} onClick={wakeAlice} disabled={alicePending || aliceActive} aria-busy={aliceStarting} data-state={aliceState}>
+              <span className="alice-icon" data-active={aliceStarting} aria-hidden="true"><LoaderCircle className="alice-spinner" size={22} /></span>
+              <span className="alice-icon" data-active={!aliceStarting && aliceState === "listening"} aria-hidden="true"><Mic size={23} strokeWidth={1.8} /></span>
+              <span className="alice-icon" data-active={!aliceStarting && aliceState === "busy"} aria-hidden="true"><Ellipsis size={24} /></span>
+              <span className="alice-icon" data-active={!aliceStarting && aliceState === "speaking"} aria-hidden="true"><AudioLines className="alice-voice" size={24} strokeWidth={1.8} /></span>
+              <span className="alice-icon" data-active={!aliceStarting && !["listening", "busy", "speaking"].includes(aliceState)} aria-hidden="true"><AudioLines size={24} strokeWidth={1.8} /></span>
             </button>
           </div>
         </div>
       </main>
+      {aliceError && (
+        <div className="error-toast" role="alert">
+          <CircleAlert size={18} aria-hidden="true" />
+          <span>{aliceError}</span>
+          <button type="button" className="toast-close" aria-label="Закрыть уведомление" onClick={() => setAliceError("")}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
