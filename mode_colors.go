@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -58,7 +57,8 @@ func renderModePattern(original []byte, colors []string) ([]byte, error) {
 			r, g, b := float64(pixel[0]), float64(pixel[1]), float64(pixel[2])
 			maximum := math.Max(r, math.Max(g, b))
 			minimum := math.Min(r, math.Min(g, b))
-			if maximum > 0 {
+			brightness := math.Max(maximum, float64(pixel[3]))
+			if brightness > 0 {
 				hue := 0.0
 				if delta := maximum - minimum; delta > 0 {
 					switch maximum {
@@ -79,9 +79,11 @@ func renderModePattern(original []byte, colors []string) ([]byte, error) {
 				fraction := position - math.Floor(position)
 				a, z := palette[index], palette[(index+1)%len(palette)]
 				for channel := 0; channel < 3; channel++ {
-					pixel[channel] = byte(math.Round((float64(a[channel])*(1-fraction) + float64(z[channel])*fraction) * maximum / 255))
+					pixel[channel] = byte(math.Round((float64(a[channel])*(1-fraction) + float64(z[channel])*fraction) * brightness / 255))
 				}
 			}
+			// The fourth byte drives a white LED; do not mix it into a chosen RGB color.
+			pixel[3] = 0
 			fields[j] = hex.EncodeToString(pixel)
 		}
 		lines[i] = strings.Join(fields, " ")
@@ -92,7 +94,7 @@ func renderModePattern(original []byte, colors []string) ([]byte, error) {
 	}
 	return []byte(strings.Join(lines, "\n")), nil
 }
-func saveModePatterns(previous, next map[string][]string, directory string) (func(), error) {
+func saveModePatterns(next map[string][]string, directory string) (func(), error) {
 	old := map[string][]byte{}
 	rollback := func() {
 		for target, data := range old {
@@ -100,9 +102,7 @@ func saveModePatterns(previous, next map[string][]string, directory string) (fun
 		}
 	}
 	for _, mode := range []string{"candle", "night", "lava"} {
-		if reflect.DeepEqual(previous[mode], next[mode]) {
-			continue
-		}
+		// Always rebuild from the untouched original: old generated files may still contain white.
 		name := modePatternNames[mode]
 		target := filepath.Join(filepath.Dir(physicalVolumePath), name)
 		current, err := os.ReadFile(target)

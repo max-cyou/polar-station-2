@@ -155,7 +155,7 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		authWrite(w, 500, map[string]string{"error": "Не удалось записать физическую палитру. Настройки не сохранены"})
 		return
 	}
-	rollbackModes, modeErr := saveModePatterns(m.lighting.Modes, config.Modes, filepath.Dir(m.lightingPath))
+	rollbackModes, modeErr := saveModePatterns(config.Modes, filepath.Dir(m.lightingPath))
 	if modeErr != nil {
 		rollbackModes()
 		if physicalChanged {

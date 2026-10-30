@@ -10,6 +10,7 @@ import { SystemInfo } from "./components/SystemInfo";
 import { LightingSettings } from "./components/LightingSettings";
 
 function App() {
+  const [modeColors, setModeColors] = useState<Record<string, string[]>>({ candle: ["#ff9f40"], night: ["#ff9f40"], lava: ["#ff173d", "#45d778", "#8656ed"] });
   const [lightingMode, setLightingMode] = useState("none");
   const [lightingBrightness, setLightingBrightness] = useState(100);
   const [aliceLighting, setAliceLighting] = useState({ color: "#a45cf5", enabled: true });
@@ -30,6 +31,9 @@ function App() {
   const stateSequence = useRef(0);
   const waitingForConfirmation = useRef<number | null>(null);
   const aliceActive = ["listening", "busy", "speaking"].includes(aliceState);
+  const modeGlow = ["candle", "lava", "night"].includes(lightingMode);
+  const stationGlow = (aliceActive && aliceLighting.enabled) || modeGlow;
+  const glowColors = aliceActive && aliceLighting.enabled ? [aliceLighting.color] : modeColors[lightingMode] ?? [aliceLighting.color];
   const aliceLabel = aliceStarting ? "Вызываю Алису" : aliceState === "listening" ? "Алиса слушает" : aliceState === "speaking" ? "Алиса говорит" : aliceState === "busy" ? "Алиса думает" : "Вызвать Алису";
   const [aliceError, setAliceError] = useState("");
   useEffect(() => {
@@ -134,7 +138,8 @@ function App() {
         <div className="dashboard-layout">
         <div className="dashboard-primary">
         <div className="dashboard-top">
-        <div className={`dashboard-block${aliceActive && aliceLighting.enabled ? " alice-calling" : ""}${aliceState === "speaking" && aliceLighting.enabled ? " alice-speaking" : aliceState === "busy" && aliceLighting.enabled ? " alice-thinking" : ""}`} style={{ "--alice-primary": aliceLighting.color, "--lighting-brightness": lightingBrightness / 100 } as React.CSSProperties}>
+        <div className={`dashboard-block${modeGlow && !(aliceActive && aliceLighting.enabled) ? ` mode-${lightingMode}-glow` : ""}${stationGlow ? " alice-calling" : ""}${aliceState === "speaking" && aliceLighting.enabled ? " alice-speaking" : aliceState === "busy" && aliceLighting.enabled ? " alice-thinking" : ""}`} style={{ "--alice-primary": glowColors[0], "--glow-color-1": glowColors[0], "--glow-color-2": glowColors[1] ?? glowColors[0], "--glow-color-3": glowColors[2] ?? glowColors[0], "--glow-color-4": glowColors[3] ?? glowColors[0], "--mode-color-1": glowColors[0], "--mode-color-2": glowColors[1] ?? glowColors[0], "--mode-color-3": glowColors[2] ?? glowColors[0], "--lighting-brightness": lightingBrightness / 100 } as React.CSSProperties}>
+          {lightingMode === "lava" && <div className="lava-mode-halo" aria-hidden="true">{[0, 1, 2].map(index => <div className={`lava-mode-layer lava-mode-layer-${index}`} key={index} style={{ background: `radial-gradient(ellipse 130px 200px at 0% 25%, ${glowColors[index % glowColors.length]}aa, transparent 85%), radial-gradient(ellipse 190px 90px at 65% 0%, ${glowColors[(index + 1) % glowColors.length]}99, transparent 90%), radial-gradient(ellipse 120px 180px at 100% 85%, ${glowColors[(index + 2) % glowColors.length]}bb, transparent 85%), radial-gradient(ellipse 190px 80px at 20% 100%, ${glowColors[index % glowColors.length]}88, transparent 90%)` }} />)}</div>}
           <div className="alice-speech-halo" aria-hidden="true" />
           {volumePulse && <div key={volumePulse.id} className="volume-pulse" aria-hidden="true" style={{ "--volume-color": volumePulse.color, animationDuration: `${volumePulse.durationMs}ms` } as React.CSSProperties} onAnimationEnd={() => setVolumePulse(previous => previous?.id === volumePulse.id ? null : previous)} />}
           <div className="station-heading">
@@ -162,7 +167,7 @@ function App() {
           </div>
         </div>
         </div>
-        <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} currentMode={lightingMode} /></div>
+        <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} currentMode={lightingMode} onModeColorsChange={setModeColors} /></div>
         </div>
         <div className="dashboard-side-blocks"><div className="dashboard-side-block" /><div className="dashboard-side-block" /></div>
         </div>

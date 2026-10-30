@@ -54,6 +54,7 @@ func renderVolumePattern(original []byte, palette volumeLighting) ([]byte, error
 					pixel[channel] = byte(math.Round((float64(a[channel])*(1-t) + float64(z[channel])*t) * brightness / 255))
 				}
 			}
+			pixel[3] = 0
 			fields[i] = hex.EncodeToString(pixel)
 		}
 		lines[index] = strings.Join(fields, " ")

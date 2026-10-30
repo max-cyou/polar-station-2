@@ -10,9 +10,9 @@ const defaultPresets: Preset[] = [
   { id: "northern", name: "Северное сияние", colors: ["#71b9ed", "#3987b5", "#65cdbd", "#b5e8e3"] },
   { id: "sunset", name: "Закат", colors: ["#f58e75", "#f1bd67", "#ed7a8b", "#a663ca"] },
 ];
-type Props = { currentMode: string; onAliceChange: (alice: Settings["alice"]) => void; onBrightnessChange: (brightness: number) => void };
+type Props = { onModeColorsChange: (modes: Record<string, string[]>) => void; currentMode: string; onAliceChange: (alice: Settings["alice"]) => void; onBrightnessChange: (brightness: number) => void };
 
-export function LightingSettings({ onAliceChange, onBrightnessChange, currentMode }: Props) {
+export function LightingSettings({ onAliceChange, onBrightnessChange, currentMode, onModeColorsChange }: Props) {
   const [presetsOpen, setPresetsOpen] = useState(false);
   const presetsRoot = useRef<HTMLDivElement>(null);
   const presetsTrigger = useRef<HTMLButtonElement>(null);
@@ -35,11 +35,11 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
         if (controller.signal.aborted) return;
         if (!data.alice || !data.volume) throw new Error();
         data.customPresets ??= []; data.activePreset ??= "";
-        setSettings(data); setSaved(data); onAliceChange(data.alice);
+        setSettings(data); setSaved(data); onAliceChange(data.alice); onModeColorsChange(data.modes);
         if (typeof data.brightness === "number") { setBrightness(data.brightness); setSavedBrightness(data.brightness); onBrightnessChange(data.brightness); }
       }).catch(() => { if (!controller.signal.aborted) setError("Не удалось загрузить настройки"); });
     return () => controller.abort();
-  }, [onAliceChange, onBrightnessChange]);
+  }, [onAliceChange, onBrightnessChange, onModeColorsChange]);
   useEffect(() => {
     if (!presetsOpen) return;
     const selected = presets.findIndex(preset => preset.id === settings?.activePreset);
@@ -57,7 +57,7 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Не удалось сохранить настройки");
       data.customPresets ??= []; data.activePreset ??= "";
-        setSettings(data); setSaved(data); onAliceChange(data.alice);
+        setSettings(data); setSaved(data); onAliceChange(data.alice); onModeColorsChange(data.modes);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось сохранить настройки"); }
     finally { setBusy(false); }
   }

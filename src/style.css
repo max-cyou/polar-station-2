@@ -161,10 +161,10 @@ main { flex: 1; min-width: 0; padding: 24px 24px 24px 96px; display: flex; flex-
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 100px 180px at 0% 24%, color-mix(in srgb, var(--alice-primary) 61%, transparent), transparent 85%),
-    radial-gradient(ellipse 180px 68px at 68% 0%, color-mix(in srgb, var(--alice-primary) 61%, transparent), transparent 90%),
-    radial-gradient(ellipse 100px 150px at 100% 85%, color-mix(in srgb, var(--alice-primary) 70%, transparent), transparent 85%),
-    radial-gradient(ellipse 190px 80px at 18% 100%, color-mix(in srgb, var(--alice-primary) 52%, transparent), transparent 90%);
+    radial-gradient(ellipse 100px 180px at 0% 24%, color-mix(in srgb, var(--glow-color-1, var(--alice-primary)) 61%, transparent), transparent 85%),
+    radial-gradient(ellipse 180px 68px at 68% 0%, color-mix(in srgb, var(--glow-color-2, var(--alice-primary)) 61%, transparent), transparent 90%),
+    radial-gradient(ellipse 100px 150px at 100% 85%, color-mix(in srgb, var(--glow-color-3, var(--alice-primary)) 70%, transparent), transparent 85%),
+    radial-gradient(ellipse 190px 80px at 18% 100%, color-mix(in srgb, var(--glow-color-4, var(--alice-primary)) 52%, transparent), transparent 90%);
   background-size: 115% 115%;
   filter: blur(15px) brightness(var(--lighting-brightness, 1));
   opacity: 0;
@@ -576,3 +576,36 @@ main { flex: 1; min-width: 0; padding: 24px 24px 24px 96px; display: flex; flex-
 .light-mode-palette-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #a8afb8; font-size: 11px; }
 .light-editor-tabs { flex-wrap: wrap; }
 .light-editor-tabs button { flex-basis: 24%; }
+
+@property --glow-color-1 { syntax: '<color>'; inherits: true; initial-value: #a45cf5; }
+@property --glow-color-2 { syntax: '<color>'; inherits: true; initial-value: #a45cf5; }
+@property --glow-color-3 { syntax: '<color>'; inherits: true; initial-value: #a45cf5; }
+@property --glow-color-4 { syntax: '<color>'; inherits: true; initial-value: #a45cf5; }
+@property --alice-primary { syntax: '<color>'; inherits: true; initial-value: #a45cf5; }
+.dashboard-block { transition: --glow-color-1 1.5s ease, --glow-color-2 1.5s ease, --glow-color-3 1.5s ease, --glow-color-4 1.5s ease, --alice-primary 1.5s ease; }
+@media (prefers-reduced-motion: reduce) { .dashboard-block { transition: none; } }
+
+.dashboard-block.mode-lava-glow::before { opacity: 0; }
+.lava-mode-halo { position: absolute; inset: -18px; z-index: 0; pointer-events: none; opacity: 0; filter: blur(15px) brightness(var(--lighting-brightness, 1)); transition: opacity 1.5s ease; animation: alice-glow-drift 10s ease-in-out infinite alternate; }
+.mode-lava-glow .lava-mode-halo { opacity: 1; }
+.lava-mode-layer { position: absolute; inset: 0; background-size: 115% 115%; animation-duration: 30s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.lava-mode-layer-0 { animation-name: lava-crossfade-0; }
+.lava-mode-layer-1 { animation-name: lava-crossfade-1; }
+.lava-mode-layer-2 { animation-name: lava-crossfade-2; }
+@keyframes lava-crossfade-0 { 0%, 100% { opacity: 1; } 33.333%, 66.667% { opacity: 0; } }
+@keyframes lava-crossfade-1 { 0%, 66.667%, 100% { opacity: 0; } 33.333% { opacity: 1; } }
+@keyframes lava-crossfade-2 { 0%, 33.333%, 100% { opacity: 0; } 66.667% { opacity: 1; } }
+.dashboard-block.mode-candle-glow::before { animation: station-candle-glow 4.7s ease-in-out infinite; }
+@keyframes station-candle-glow {
+  0%, 100% { opacity: .78; transform: scale(1); }
+  19% { opacity: .92; transform: scale(1.025); }
+  36% { opacity: .72; transform: scale(.99); }
+  61% { opacity: 1; transform: scale(1.04); }
+  78% { opacity: .86; transform: scale(1.01); }
+}
+.dashboard-block.mode-night-glow::before { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-block.mode-lava-glow, .dashboard-block.mode-candle-glow::before { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) { .lava-mode-halo, .lava-mode-layer { animation: none; } .lava-mode-layer-1, .lava-mode-layer-2 { opacity: 0; } }
