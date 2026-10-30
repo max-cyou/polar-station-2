@@ -58,6 +58,7 @@ type musicInfo struct {
 	Error     string  `json:"error,omitempty"`
 }
 type musicClient struct {
+	modeBusy     sync.Mutex
 	mu           sync.Mutex
 	writeMu      sync.Mutex
 	auth         *yandexAuth
@@ -386,6 +387,8 @@ func (m *musicClient) waitPlayback(ctx context.Context, conn *websocket.Conn, to
 }
 
 func (m *musicClient) routes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/appearance/mode", m.lightingMode)
+	mux.HandleFunc("POST /api/appearance/mode", m.lightingMode)
 	mux.HandleFunc("GET /api/music/queue", m.queueRoute)
 	mux.HandleFunc("GET /api/music/like", m.likeRoute)
 	mux.HandleFunc("POST /api/music/like", m.likeRoute)

@@ -10,6 +10,7 @@ import { SystemInfo } from "./components/SystemInfo";
 import { LightingSettings } from "./components/LightingSettings";
 
 function App() {
+  const [lightingMode, setLightingMode] = useState("none");
   const [lightingBrightness, setLightingBrightness] = useState(100);
   const [aliceLighting, setAliceLighting] = useState({ color: "#a45cf5", enabled: true });
   const [queueTrackId, setQueueTrackId] = useState("");
@@ -44,6 +45,7 @@ function App() {
         stateSequence.current = data.sequence;
         setAliceState(data.available ? data.state : "unknown");
         setMusicPlaying(data.musicPlaying === true);
+        if (["none", "candle", "lava", "night"].includes(data.lightMode)) setLightingMode(data.lightMode);
         if (data.volumeKnown && typeof data.volume === "number") setVolume(data.volume);
         const pulse = data.volumePulse;
         if (pulse && typeof pulse.id === "number") {
@@ -160,7 +162,7 @@ function App() {
           </div>
         </div>
         </div>
-        <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} /></div>
+        <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} currentMode={lightingMode} /></div>
         </div>
         <div className="dashboard-side-blocks"><div className="dashboard-side-block" /><div className="dashboard-side-block" /></div>
         </div>

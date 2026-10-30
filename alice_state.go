@@ -14,6 +14,7 @@ import (
 )
 
 type aliceStatus struct {
+	LightMode    string      `json:"lightMode"`
 	State        string      `json:"state"`
 	Available    bool        `json:"available"`
 	Sequence     uint64      `json:"sequence"`
@@ -154,6 +155,7 @@ func (m *aliceMonitor) poll() {
 	m.remainder = lines[len(lines)-1]
 	for _, line := range lines[:len(lines)-1] {
 		m.volumeLine(line)
+		m.lightModeLine(line)
 		if state := parseAliceState(line); state != "" {
 			m.publish(state, true)
 		}

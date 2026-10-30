@@ -35,7 +35,12 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var input struct {
-		Alice struct {
+		Modes         map[string][]string `json:"modes"`
+		CustomPresets *[]lightingPreset   `json:"customPresets"`
+		ActivePreset  *string             `json:"activePreset"`
+		Alerts        map[string]string   `json:"alerts"`
+		Other         map[string]string   `json:"other"`
+		Alice         struct {
 			Color   string `json:"color"`
 			Enabled *bool  `json:"enabled"`
 		} `json:"alice"`
@@ -45,13 +50,73 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 			High   string `json:"high"`
 		} `json:"volume"`
 	}
-	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input) != nil || input.Alice.Enabled == nil {
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 65536)).Decode(&input) != nil || input.Alice.Enabled == nil {
 		authWrite(w, 400, map[string]string{"error": "Некорректные настройки"})
 		return
 	}
 	for _, color := range []string{input.Alice.Color, input.Volume.Low, input.Volume.Middle, input.Volume.High} {
 		if _, err := colorRGB(color); err != nil {
 			authWrite(w, 400, map[string]string{"error": "Некорректный цвет"})
+			return
+		}
+	}
+	for _, group := range []struct {
+		values map[string]string
+		keys   []string
+	}{{input.Alerts, []string{"timer", "notification", "call"}}, {input.Other, []string{"bluetooth", "pause", "track", "like", "boot"}}} {
+		if group.values == nil {
+			continue
+		}
+		valid := len(group.values) == len(group.keys)
+		for _, key := range group.keys {
+			if _, err := colorRGB(group.values[key]); err != nil {
+				valid = false
+			}
+		}
+		if !valid {
+			authWrite(w, 400, map[string]string{"error": "Некорректная палитра"})
+			return
+		}
+	}
+	if input.CustomPresets != nil {
+		if len(*input.CustomPresets) > 64 {
+			authWrite(w, 400, map[string]string{"error": "Слишком много пресетов"})
+			return
+		}
+		ids := map[string]bool{}
+		for _, preset := range *input.CustomPresets {
+			if !strings.HasPrefix(preset.ID, "custom-") || len(preset.ID) > 100 || ids[preset.ID] || strings.TrimSpace(preset.Name) == "" || len(preset.Name) > 100 || len(preset.Colors) != 4 {
+				authWrite(w, 400, map[string]string{"error": "Некорректный пресет"})
+				return
+			}
+			if preset.Modes != nil {
+				if err := validateModeColors(preset.Modes); err != nil {
+					authWrite(w, 400, map[string]string{"error": "Некорректные цвета режимов пресета"})
+					return
+				}
+			}
+			ids[preset.ID] = true
+			colors := append([]string(nil), preset.Colors...)
+			for _, group := range []map[string]string{preset.Alerts, preset.Other} {
+				for _, color := range group {
+					colors = append(colors, color)
+				}
+			}
+			for _, color := range colors {
+				if _, err := colorRGB(color); err != nil {
+					authWrite(w, 400, map[string]string{"error": "Некорректный цвет пресета"})
+					return
+				}
+			}
+		}
+	}
+	if input.ActivePreset != nil && len(*input.ActivePreset) > 100 {
+		authWrite(w, 400, map[string]string{"error": "Некорректный пресет"})
+		return
+	}
+	if input.Modes != nil {
+		if err := validateModeColors(input.Modes); err != nil {
+			authWrite(w, 400, map[string]string{"error": "Некорректные цвета режимов"})
 			return
 		}
 	}
@@ -62,6 +127,21 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config := m.lighting
+	if input.Modes != nil {
+		config.Modes = input.Modes
+	}
+	if input.CustomPresets != nil {
+		config.CustomPresets = *input.CustomPresets
+	}
+	if input.ActivePreset != nil {
+		config.ActivePreset = *input.ActivePreset
+	}
+	if input.Alerts != nil {
+		config.Alerts = input.Alerts
+	}
+	if input.Other != nil {
+		config.Other = input.Other
+	}
 	config.Alice.Color, config.Alice.Enabled = input.Alice.Color, *input.Alice.Enabled
 	config.Volume.Low, config.Volume.Middle, config.Volume.High = input.Volume.Low, input.Volume.Middle, input.Volume.High
 	physicalChanged, previousPattern, physicalErr := savePhysicalVolume(config.Volume, filepath.Dir(m.lightingPath))
@@ -73,6 +153,16 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		authWrite(w, 500, map[string]string{"error": "Не удалось записать физическую палитру. Настройки не сохранены"})
+		return
+	}
+	rollbackModes, modeErr := saveModePatterns(m.lighting.Modes, config.Modes, filepath.Dir(m.lightingPath))
+	if modeErr != nil {
+		rollbackModes()
+		if physicalChanged {
+			_ = replaceVolumePattern(previousPattern)
+		}
+		log.Printf("Save mode colors: %v", modeErr)
+		authWrite(w, 500, map[string]string{"error": "Не удалось записать цвета режимов"})
 		return
 	}
 	data, err := json.MarshalIndent(config, "", "  ")
@@ -94,6 +184,7 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
+		rollbackModes()
 		if physicalChanged {
 			if rollbackErr := replaceVolumePattern(previousPattern); rollbackErr != nil {
 				log.Printf("Restore volume: %v", rollbackErr)

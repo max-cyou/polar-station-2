@@ -11,5 +11,30 @@
     "middle": "#f2cd45",
     "high": "#f05252",
     "durationMs": 750
+  },
+  "alerts": {
+    "timer": "#45d778",
+    "notification": "#45d778",
+    "call": "#45d778"
+  },
+  "other": {
+    "bluetooth": "#3584e4",
+    "pause": "#a45cf5",
+    "track": "#a45cf5",
+    "like": "#a45cf5",
+    "boot": "#a45cf5"
+  },
+  "modes": {
+    "candle": [
+      "#ff9f40"
+    ],
+    "night": [
+      "#ff9f40"
+    ],
+    "lava": [
+      "#ff173d",
+      "#45d778",
+      "#8656ed"
+    ]
   }
 }

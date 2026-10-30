@@ -65,7 +65,9 @@ func renderVolumePattern(original []byte, palette volumeLighting) ([]byte, error
 	return []byte(strings.Join(lines, "\n")), nil
 }
 
-func replaceVolumePattern(data []byte) (err error) {
+func replaceVolumePattern(data []byte) error { return replacePhysicalPattern(physicalVolumePath, data) }
+
+func replacePhysicalPattern(target string, data []byte) (err error) {
 	var stat syscall.Statfs_t
 	if err = syscall.Statfs("/", &stat); err != nil {
 		return err
@@ -81,7 +83,7 @@ func replaceVolumePattern(data []byte) (err error) {
 			}
 		}()
 	}
-	file, err := os.CreateTemp(filepath.Dir(physicalVolumePath), ".polar-volume-*")
+	file, err := os.CreateTemp(filepath.Dir(target), ".polar-pattern-*")
 	if err != nil {
 		return err
 	}
@@ -98,7 +100,7 @@ func replaceVolumePattern(data []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = os.Rename(file.Name(), physicalVolumePath); err != nil {
+	if err = os.Rename(file.Name(), target); err != nil {
 		return err
 	}
 	syscall.Sync()

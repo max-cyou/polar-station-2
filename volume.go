@@ -23,9 +23,23 @@ type volumeLighting struct {
 	DurationMS int    `json:"durationMs"`
 }
 
+type lightingPreset struct {
+	Modes  map[string][]string `json:"modes,omitempty"`
+	ID     string              `json:"id"`
+	Name   string              `json:"name"`
+	Colors []string            `json:"colors"`
+	Alerts map[string]string   `json:"alerts,omitempty"`
+	Other  map[string]string   `json:"other,omitempty"`
+}
+
 type lightingConfig struct {
-	Brightness *int `json:"brightness,omitempty"`
-	Alice      struct {
+	Modes         map[string][]string `json:"modes"`
+	CustomPresets []lightingPreset    `json:"customPresets"`
+	ActivePreset  string              `json:"activePreset"`
+	Alerts        map[string]string   `json:"alerts"`
+	Other         map[string]string   `json:"other"`
+	Brightness    *int                `json:"brightness,omitempty"`
+	Alice         struct {
 		Color   string `json:"color"`
 		Enabled bool   `json:"enabled"`
 	} `json:"alice"`
@@ -68,6 +82,16 @@ func loadLighting(path string) (lightingConfig, error) {
 		if _, err = colorRGB(color); err != nil {
 			return config, err
 		}
+	}
+	for _, group := range []map[string]string{config.Alerts, config.Other} {
+		for _, color := range group {
+			if _, err := colorRGB(color); err != nil {
+				return config, err
+			}
+		}
+	}
+	if err := validateModeColors(config.Modes); err != nil {
+		return config, err
 	}
 	if config.Brightness != nil && (*config.Brightness < 0 || *config.Brightness > 100) {
 		return config, fmt.Errorf("brightness must be between 0 and 100")
