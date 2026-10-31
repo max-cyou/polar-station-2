@@ -25,6 +25,9 @@ var frontend embed.FS
 
 func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) error, auth *yandexAuth, music *musicClient, monitors ...*aliceMonitor) http.Handler {
 	mux := http.NewServeMux()
+	filesRoutes(mux)
+	mux.HandleFunc("GET /api/processes", processesHandler())
+	mux.HandleFunc("POST /api/processes/action", processActionsHandler())
 	mux.HandleFunc("GET /api/system", systemInfoHandler())
 	mux.HandleFunc("POST /api/system/power", func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {

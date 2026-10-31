@@ -7,6 +7,8 @@ import { MatrixDisplay } from "./components/MatrixDisplay";
 import { MusicCard } from "./components/MusicCard";
 import { MusicQueue } from "./components/MusicQueue";
 import { SystemInfo } from "./components/SystemInfo";
+import { FileManager } from "./components/FileManager";
+import { Processes } from "./components/Processes";
 import { LightingSettings } from "./components/LightingSettings";
 
 function App() {
@@ -169,7 +171,7 @@ function App() {
         </div>
         <div className="dashboard-lower"><div className="dashboard-lower-column"><SystemInfo /><div className="dashboard-lower-empty power-controls"><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("poweroff")}><Power size={17} />Выключить</button><button type="button" disabled={powerPending} onClick={() => setPowerConfirmation("reboot")}><RotateCw size={17} />Перезагрузить</button></div></div><LightingSettings onAliceChange={setAliceLighting} onBrightnessChange={setLightingBrightness} currentMode={lightingMode} onModeColorsChange={setModeColors} /></div>
         </div>
-        <div className="dashboard-side-blocks"><div className="dashboard-side-block" /><div className="dashboard-side-block" /></div>
+        <div className="dashboard-side-blocks"><div className="dashboard-side-block" /><div className="dashboard-side-split"><FileManager /><Processes /></div></div>
         </div>
       </main>
       <dialog className="auth-dialog power-dialog" ref={powerDialog} aria-labelledby="power-dialog-title" aria-describedby="power-dialog-description" onClose={() => setPowerConfirmation(null)} onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) setPowerConfirmation(null); } }}>
