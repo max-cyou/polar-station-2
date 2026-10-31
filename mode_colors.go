@@ -94,7 +94,7 @@ func renderModePattern(original []byte, colors []string) ([]byte, error) {
 	}
 	return []byte(strings.Join(lines, "\n")), nil
 }
-func saveModePatterns(next map[string][]string, directory string) (func(), error) {
+func saveModePatterns(next map[string][]string, directory string) (func(), bool, error) {
 	old := map[string][]byte{}
 	rollback := func() {
 		for target, data := range old {
@@ -107,37 +107,37 @@ func saveModePatterns(next map[string][]string, directory string) (func(), error
 		target := filepath.Join(filepath.Dir(physicalVolumePath), name)
 		current, err := os.ReadFile(target)
 		if err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 		backupDir := filepath.Join(directory, "mode-pattern-originals")
 		if err = os.MkdirAll(backupDir, 0700); err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 		originalPath := filepath.Join(backupDir, name)
 		original, err := os.ReadFile(originalPath)
 		if os.IsNotExist(err) {
 			if err = os.WriteFile(originalPath, current, 0600); err != nil {
-				return rollback, err
+				return rollback, len(old) > 0, err
 			}
 			original = current
 		} else if err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 		rendered, err := renderModePattern(original, next[mode])
 		if err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 		if bytes.Equal(current, rendered) {
 			continue
 		}
 		backup := filepath.Join(directory, "backup-"+mode+"-"+time.Now().Format("20060102-150405.000000000")+".led")
 		if err = os.WriteFile(backup, current, 0600); err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 		old[target] = current
 		if err = replacePhysicalPattern(target, rendered); err != nil {
-			return rollback, err
+			return rollback, len(old) > 0, err
 		}
 	}
-	return rollback, nil
+	return rollback, len(old) > 0, nil
 }

@@ -120,6 +120,11 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if !m.applyMu.TryLock() {
+		authWrite(w, 409, map[string]string{"error": "Дождитесь применения подсветки"})
+		return
+	}
+	defer m.applyMu.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.lightingPath == "" {
@@ -155,7 +160,7 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		authWrite(w, 500, map[string]string{"error": "Не удалось записать физическую палитру. Настройки не сохранены"})
 		return
 	}
-	rollbackModes, modeErr := saveModePatterns(config.Modes, filepath.Dir(m.lightingPath))
+	rollbackModes, modesChanged, modeErr := saveModePatterns(config.Modes, filepath.Dir(m.lightingPath))
 	if modeErr != nil {
 		rollbackModes()
 		if physicalChanged {
@@ -164,6 +169,12 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Save mode colors: %v", modeErr)
 		authWrite(w, 500, map[string]string{"error": "Не удалось записать цвета режимов"})
 		return
+	}
+	if physicalChanged || modesChanged {
+		config.PendingPlatform = "unknown"
+		if platform, err := currentPlatform(); err == nil {
+			config.PendingPlatform = platform.key
+		}
 	}
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err == nil {
@@ -194,5 +205,6 @@ func (m *aliceMonitor) appearance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.lighting = config
+	m.applyError = ""
 	authWrite(w, 200, config)
 }

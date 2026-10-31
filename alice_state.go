@@ -25,6 +25,9 @@ type aliceStatus struct {
 }
 
 type aliceMonitor struct {
+	applyMu         sync.Mutex
+	applying        bool
+	applyError      string
 	mu              sync.Mutex
 	status          aliceStatus
 	subscribers     map[chan aliceStatus]struct{}

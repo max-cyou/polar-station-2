@@ -33,13 +33,14 @@ type lightingPreset struct {
 }
 
 type lightingConfig struct {
-	Modes         map[string][]string `json:"modes"`
-	CustomPresets []lightingPreset    `json:"customPresets"`
-	ActivePreset  string              `json:"activePreset"`
-	Alerts        map[string]string   `json:"alerts"`
-	Other         map[string]string   `json:"other"`
-	Brightness    *int                `json:"brightness,omitempty"`
-	Alice         struct {
+	PendingPlatform string              `json:"pendingPlatform,omitempty"`
+	Modes           map[string][]string `json:"modes"`
+	CustomPresets   []lightingPreset    `json:"customPresets"`
+	ActivePreset    string              `json:"activePreset"`
+	Alerts          map[string]string   `json:"alerts"`
+	Other           map[string]string   `json:"other"`
+	Brightness      *int                `json:"brightness,omitempty"`
+	Alice           struct {
 		Color   string `json:"color"`
 		Enabled bool   `json:"enabled"`
 	} `json:"alice"`

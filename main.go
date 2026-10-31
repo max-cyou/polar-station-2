@@ -72,6 +72,8 @@ func newHandler(assets fs.FS, firmwarePath string, listen func(context.Context) 
 	if len(monitors) > 0 {
 		monitor = monitors[0]
 	}
+	mux.HandleFunc("GET /api/appearance/apply", monitor.appearanceApply)
+	mux.HandleFunc("POST /api/appearance/apply", monitor.appearanceApply)
 	mux.HandleFunc("GET /api/appearance", monitor.appearance)
 	mux.HandleFunc("POST /api/appearance", monitor.appearance)
 	mux.HandleFunc("POST /api/appearance/brightness", monitor.brightness)

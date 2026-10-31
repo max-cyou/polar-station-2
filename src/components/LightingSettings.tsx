@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Plus, SlidersHorizontal, Sun, X } from "lucide-react";
+import { Check, ChevronDown, Plus, SlidersHorizontal, Sun, X, LoaderCircle } from "lucide-react";
 import { ColorPicker } from "./ColorPicker";
 import { LightingMode } from "./LightingMode";
 
@@ -25,6 +25,38 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
   const [settings, setSettings] = useState<Settings | null>(null);
   const presets = [...defaultPresets, ...(settings?.customPresets ?? [])];
   const [saved, setSaved] = useState<Settings | null>(null);
+  const applyDialog = useRef<HTMLDialogElement>(null);
+  const [applyState, setApplyState] = useState({ pending: false, applying: false, available: false, retryAfter: 0, error: "" });
+  const refreshApply = useRef<() => void>(() => {});
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer = 0;
+    let running = false;
+    async function update() {
+      if (running || controller.signal.aborted) return;
+      running = true;
+      window.clearTimeout(timer);
+      try {
+        const response = await fetch("/api/appearance/apply", { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]) });
+        if (response.ok) { const data = await response.json(); if (!controller.signal.aborted) setApplyState(data); }
+      } catch { /* Keep the recovery indicator during a temporary connection loss. */ }
+      finally { running = false; if (!controller.signal.aborted) timer = window.setTimeout(update, 2000); }
+    }
+    refreshApply.current = () => { void update(); };
+    void update();
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, []);
+  async function applyNow() {
+    applyDialog.current?.close();
+    setError("");
+    setApplyState(previous => ({ ...previous, applying: true }));
+    try {
+      const response = await fetch("/api/appearance/apply", { method: "POST", signal: AbortSignal.timeout(8000) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось применить подсветку");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось применить подсветку"); }
+    finally { refreshApply.current(); }
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -50,7 +82,7 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
   }, [presetsOpen]);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
   async function save() {
-    if (!settings || busy) return;
+    if (!settings || busy || applyState.applying) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/appearance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings), signal: AbortSignal.timeout(8000) });
@@ -58,6 +90,7 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
       if (!response.ok) throw new Error(data.error || "Не удалось сохранить настройки");
       data.customPresets ??= []; data.activePreset ??= "";
         setSettings(data); setSaved(data); onAliceChange(data.alice); onModeColorsChange(data.modes);
+      refreshApply.current();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось сохранить настройки"); }
     finally { setBusy(false); }
   }
@@ -130,8 +163,19 @@ export function LightingSettings({ onAliceChange, onBrightnessChange, currentMod
         <SlidersHorizontal size={15} aria-hidden="true" />
       </button>
       </div></div>
-      <footer className="lighting-actions light-footer">{(error || busy || dirty) && <span className={error ? "light-status-error" : "light-save-status"} role="status" title={error || ""}>{error || (busy ? "Сохранение…" : "Есть изменения")}</span>}<button type="button" className="auth-button" disabled={!dirty || busy} onClick={() => void save()}>{busy ? "Сохранение…" : dirty ? "Сохранить" : "Сохранения применяются только после перезагрузки колонки"}</button></footer>
+      <footer className="lighting-actions light-footer">
+        {(error || applyState.error) && <span className="light-status-error" role="status">{error || applyState.error}</span>}
+        <div className="light-save-buttons">
+          <button type="button" className="auth-button" disabled={!dirty || busy || applyState.applying} onClick={() => void save()}>{busy ? "Сохранение…" : "Сохранить"}</button>
+          {(applyState.pending || applyState.applying) && <button type="button" className="auth-button light-apply-button" disabled={dirty || busy || applyState.applying || !applyState.available || applyState.retryAfter > 0} title={dirty ? "Сначала сохраните изменения" : applyState.retryAfter > 0 ? `Повторное применение через ${applyState.retryAfter} с` : "Перезапустить службу Алисы и применить цвета"} onClick={() => applyDialog.current?.showModal()}>{applyState.applying ? <><LoaderCircle size={13} className="light-apply-spinner" />Применение…</> : applyState.retryAfter > 0 ? `Применить через ${applyState.retryAfter} с` : "Применить сейчас"}</button>}
+        </div>
+      </footer>
     </>}
+    <dialog className="auth-dialog light-apply-dialog" ref={applyDialog} aria-labelledby="light-apply-title">
+      <div className="auth-dialog-heading"><h2 id="light-apply-title">Применить подсветку?</h2><button type="button" className="auth-close" aria-label="Закрыть" onClick={() => applyDialog.current?.close()}><X size={18} /></button></div>
+      <p>Служба Алисы будет перезапущена. Музыка и ответы могут ненадолго прерваться.</p>
+      <div className="power-dialog-actions"><button type="button" className="auth-button" onClick={() => applyDialog.current?.close()}>Позже</button><button type="button" className="auth-button" onClick={() => void applyNow()}>Применить сейчас</button></div>
+    </dialog>
     <dialog className="auth-dialog light-management-dialog" ref={colorsDialog} aria-labelledby="light-management-title" onClick={event => { if (event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) colorsDialog.current?.close(); } }}>
       <div className="auth-dialog-heading"><h2 id="light-management-title">{colorGroup === "alice" ? "Цвета свечения" : colorGroup === "volume" ? "Цвета звука" : colorGroup === "alerts" ? "Оповещения" : colorGroup === "other" ? "Прочие режимы" : colorGroup === "modes" ? "Цвета режимов" : "Своя палитра"}</h2><button type="button" className="auth-close" aria-label="Закрыть" onClick={() => colorsDialog.current?.close()}><X size={18} /></button></div>
       <div className="light-editor-tabs" aria-label="Группа цветов">{([["all", "Все"], ["alice", "Свечение"], ["volume", "Звук"], ["alerts", "Оповещения"], ["other", "Прочие"], ["modes", "Режимы"]] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={colorGroup === key} onClick={() => setColorGroup(key)}>{label}</button>)}</div>

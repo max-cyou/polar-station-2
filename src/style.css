@@ -696,3 +696,11 @@ main { flex: 1; min-width: 0; padding: 24px 24px 24px 96px; display: flex; flex-
 .process-priority > span { display: flex; justify-content: space-between; }
 .process-priority input { width: 100%; margin: 0; accent-color: #a8b0ba; }
 .process-priority small { font-size: 11px; color: #777f89; }
+
+.light-save-buttons { display: flex; gap: 8px; }
+.light-save-buttons .auth-button { flex: 1; min-width: 0; }
+.light-save-buttons .light-apply-button { display: flex; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; }
+.light-apply-spinner { animation: light-apply-spin 1s linear infinite; }
+@keyframes light-apply-spin { to { transform: rotate(360deg); } }
+.light-apply-dialog { width: min(400px, calc(100vw - 40px)); }
+.light-apply-dialog > p { color: #a0a3a6; font-size: 13px; line-height: 1.6; margin: 14px 0 22px; }
