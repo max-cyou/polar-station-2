@@ -704,3 +704,23 @@ main { flex: 1; min-width: 0; padding: 24px 24px 24px 96px; display: flex; flex-
 @keyframes light-apply-spin { to { transform: rotate(360deg); } }
 .light-apply-dialog { width: min(400px, calc(100vw - 40px)); }
 .light-apply-dialog > p { color: #a0a3a6; font-size: 13px; line-height: 1.6; margin: 14px 0 22px; }
+
+.station-terminal { display: flex; flex-direction: column; min-width: 0; padding: 16px; gap: 14px; overflow: hidden; }
+.terminal-heading { display: flex; align-items: center; gap: 14px; min-height: 26px; }
+.terminal-heading h2 { margin: 0; font-size: 16px; font-weight: 500; }
+.terminal-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.terminal-actions button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 27px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; color: #969da5; cursor: pointer; font: inherit; font-size: 10px; }
+.terminal-actions button:hover { color: #e8e9ea; background: #ffffff08; }
+.terminal-actions button:disabled { opacity: .35; cursor: default; }
+.terminal-actions .terminal-connect { padding: 0 9px; background: #ffffff06; }
+.terminal-body { position: relative; flex: 1; min-height: 0; min-width: 0; }
+.terminal-viewport { height: 100%; width: 100%; }
+.terminal-viewport .xterm { height: 100%; }
+.terminal-viewport .xterm-viewport { background-color: #191b1d !important; scrollbar-width: thin; scrollbar-color: #45494d transparent; }
+.terminal-viewport .xterm-scrollable-element > .scrollbar.horizontal, .terminal-viewport .xterm-scrollable-element > .shadow { display: none !important; }
+.terminal-idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #191b1d; color: #737c85; font-size: 12px; text-align: center; }
+.terminal-idle > span { max-width: 90%; }
+@media (max-width: 450px) { .terminal-heading { gap: 8px; } }
+
+.terminal-idle button { border: 1px solid #ffffff12; border-radius: 6px; padding: 7px 12px; background: #ffffff06; color: #c5c9ce; font: inherit; font-size: 11px; cursor: pointer; }
+.terminal-idle button:hover { background: #ffffff0b; }

@@ -6,6 +6,7 @@ export default defineConfig({
       "/api": {
         target: process.env.POLAR_API_URL || "http://192.168.1.200:8080",
         changeOrigin: false,
+        ws: true,
       },
     },
   },
